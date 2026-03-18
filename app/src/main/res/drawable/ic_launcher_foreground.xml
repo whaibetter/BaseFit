@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Dumbbell shape -->
+    <group
+        android:translateX="27"
+        android:translateY="27">
+        
+        <!-- Left weight -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M8,20 L8,34 Q8,38 12,38 L18,38 L18,16 L12,16 Q8,16 8,20 Z"/>
+        
+        <!-- Right weight -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M36,16 L36,38 L42,38 Q46,38 46,34 L46,20 Q46,16 42,16 Z"/>
+        
+        <!-- Bar -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M18,26 L36,26 L36,28 L18,28 Z"/>
+        
+        <!-- Handle -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M20,22 L34,22 L34,32 L20,32 Z"/>
+    </group>
+</vector>
