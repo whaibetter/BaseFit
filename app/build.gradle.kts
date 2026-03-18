@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -10,10 +12,16 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("../basefit-key.jks")
-            storePassword = "basefit123"
-            keyAlias = "basefit"
-            keyPassword = "basefit123"
+            val keystoreProperties = Properties()
+            val keystoreFile = rootProject.file("keystore.properties")
+            if (keystoreFile.exists()) {
+                keystoreProperties.load(keystoreFile.inputStream())
+            }
+            
+            storeFile = rootProject.file(keystoreProperties.getProperty("storeFile", "basefit-key.jks"))
+            storePassword = keystoreProperties.getProperty("storePassword", "")
+            keyAlias = keystoreProperties.getProperty("keyAlias", "basefit")
+            keyPassword = keystoreProperties.getProperty("keyPassword", "")
         }
     }
 
