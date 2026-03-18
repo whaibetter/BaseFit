@@ -1,4 +1,4 @@
-# BaseFit Android APK 自动化打包脚本
+# BaseFit Android APK Build Script
 # PowerShell Script for Automated Android APK Build and Release
 
 param(
@@ -12,25 +12,25 @@ param(
 function Write-Header {
     param([string]$Message)
     Write-Host ""
-    Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "║  $Message" -ForegroundColor Cyan
-    Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "  $Message" -ForegroundColor Cyan
+    Write-Host "========================================" -ForegroundColor Cyan
     Write-Host ""
 }
 
 function Write-Success {
     param([string]$Message)
-    Write-Host "✓ $Message" -ForegroundColor Green
+    Write-Host "[OK] $Message" -ForegroundColor Green
 }
 
 function Write-Error {
     param([string]$Message)
-    Write-Host "✗ $Message" -ForegroundColor Red
+    Write-Host "[ERROR] $Message" -ForegroundColor Red
 }
 
 function Write-Info {
     param([string]$Message)
-    Write-Host "  $Message" -ForegroundColor Yellow
+    Write-Host "  > $Message" -ForegroundColor Yellow
 }
 
 function Test-SemanticVersion {
@@ -42,7 +42,7 @@ function Test-SemanticVersion {
 function Get-CurrentVersion {
     $buildGradlePath = Join-Path $PSScriptRoot "app\build.gradle.kts"
     if (-not (Test-Path $buildGradlePath)) {
-        Write-Error "找不到 build.gradle.kts 文件"
+        Write-Error "build.gradle.kts not found"
         return "1.0.0"
     }
     
@@ -75,16 +75,16 @@ function Update-BuildGradleVersion {
     
     $buildGradlePath = Join-Path $PSScriptRoot "app\build.gradle.kts"
     if (-not (Test-Path $buildGradlePath)) {
-        Write-Error "找不到 build.gradle.kts 文件"
+        Write-Error "build.gradle.kts not found"
         return $false
     }
     
     $content = Get-Content $buildGradlePath -Raw
     
-    # 更新 versionName
+    # Update versionName
     $content = $content -replace 'versionName\s*=\s*"[^"]*"', "versionName = `"$NewVersion`""
     
-    # 更新 versionCode (递增)
+    # Update versionCode
     if ($content -match 'versionCode\s*=\s*(\d+)') {
         $oldCode = [int]$matches[1]
         $newCode = $oldCode + 1
@@ -92,35 +92,35 @@ function Update-BuildGradleVersion {
     }
     
     Set-Content -Path $buildGradlePath -Value $content -NoNewline
-    Write-Success "已更新 build.gradle.kts: versionName=$NewVersion"
+    Write-Success "Updated build.gradle.kts: versionName=$NewVersion"
     return $true
 }
 
 function Invoke-AndroidBuild {
-    Write-Header "开始构建 Android APK"
+    Write-Header "Starting Android APK Build"
     
     $gradlewPath = Join-Path $PSScriptRoot "gradlew.bat"
     if (-not (Test-Path $gradlewPath)) {
-        Write-Error "找不到 gradlew.bat 文件"
+        Write-Error "gradlew.bat not found"
         return $false
     }
     
-    Write-Info "执行 Gradle 构建..."
+    Write-Info "Executing Gradle build..."
     Push-Location $PSScriptRoot
     
     try {
         & .\gradlew.bat clean assembleRelease
         if ($LASTEXITCODE -ne 0) {
-            Write-Error "Gradle 构建失败"
+            Write-Error "Gradle build failed"
             Pop-Location
             return $false
         }
-        Write-Success "Gradle 构建成功"
+        Write-Success "Gradle build successful"
         Pop-Location
         return $true
     }
     catch {
-        Write-Error "构建过程出错: $_"
+        Write-Error "Build error: $_"
         Pop-Location
         return $false
     }
@@ -132,34 +132,34 @@ function Copy-BuildOutput {
         [string]$Version
     )
     
-    Write-Header "复制构建产物"
+    Write-Header "Copying Build Output"
     
     $apkSourcePath = Join-Path $PSScriptRoot "app\build\outputs\apk\release\app-release.apk"
     
     if (-not (Test-Path $apkSourcePath)) {
-        Write-Error "找不到构建的 APK 文件: $apkSourcePath"
+        Write-Error "APK file not found: $apkSourcePath"
         return $false
     }
     
-    # 创建输出目录
+    # Create output directory
     if (-not (Test-Path $OutputPath)) {
-        Write-Info "创建输出目录: $OutputPath"
+        Write-Info "Creating output directory: $OutputPath"
         New-Item -ItemType Directory -Path $OutputPath -Force | Out-Null
     }
     
-    # 复制 APK
+    # Copy APK
     $apkDestName = "BaseFit-v$Version.apk"
     $apkDestPath = Join-Path $OutputPath $apkDestName
     
-    Write-Info "复制 APK: $apkDestName"
+    Write-Info "Copying APK: $apkDestName"
     Copy-Item -Path $apkSourcePath -Destination $apkDestPath -Force
     
     if (-not (Test-Path $apkDestPath)) {
-        Write-Error "APK 复制失败"
+        Write-Error "APK copy failed"
         return $false
     }
     
-    Write-Success "APK 已复制到: $apkDestPath"
+    Write-Success "APK copied to: $apkDestPath"
     return $true
 }
 
@@ -169,7 +169,7 @@ function New-VersionInfoFile {
         [string]$Version
     )
     
-    Write-Header "生成版本信息文件"
+    Write-Header "Generating Version Info"
     
     $versionInfoPath = Join-Path $OutputPath "version.txt"
     
@@ -183,77 +183,72 @@ function New-VersionInfoFile {
     }
     
     $content = @"
-# BaseFit 版本信息
+BaseFit Version Info
 ====================
-
-版本号: $Version
-构建时间: $buildTime
+Version: $Version
+Build Time: $buildTime
 Git Commit: $gitCommit
-
-构建环境:
-- 操作系统: $([System.Environment]::OSVersion.VersionString)
-- PowerShell: $($PSVersionTable.PSVersion)
-
-APK 文件: BaseFit-v$Version.apk
+APK File: BaseFit-v$Version.apk
 "@
     
     Set-Content -Path $versionInfoPath -Value $content -Encoding UTF8
-    Write-Success "版本信息文件已生成: $versionInfoPath"
+    Write-Success "Version info file: $versionInfoPath"
     
     return $versionInfoPath
 }
 
 function Invoke-InteractiveMode {
-    Write-Header "BaseFit Android APK 打包工具 - 交互模式"
+    Write-Header "BaseFit APK Build Tool - Interactive Mode"
     
-    # 获取当前版本
+    # Get current version
     $currentVersion = Get-CurrentVersion
     $defaultVersion = Increment-Version $currentVersion
     
-    # 版本号输入
-    do {
+    # Version input
+    $validVersion = $false
+    while (-not $validVersion) {
         Write-Host ""
-        $inputVersion = Read-Host "请输入版本号 (当前: $currentVersion, 默认: $defaultVersion)"
+        $inputVersion = Read-Host "Enter version (current: $currentVersion, default: $defaultVersion)"
         
         if ([string]::IsNullOrWhiteSpace($inputVersion)) {
             $Version = $defaultVersion
-            Write-Info "使用默认版本号: $Version"
-            break
+            Write-Info "Using default version: $Version"
+            $validVersion = $true
         }
-        
-        if (Test-SemanticVersion $inputVersion) {
+        elseif (Test-SemanticVersion $inputVersion) {
             $Version = $inputVersion
-            Write-Info "使用自定义版本号: $Version"
-            break
+            Write-Info "Using version: $Version"
+            $validVersion = $true
         }
-        
-        Write-Error "版本号格式无效，请使用 x.y.z 格式 (如 1.0.0)"
-    } while ($true)
+        else {
+            Write-Error "Invalid format, use x.y.z (e.g. 1.0.0)"
+        }
+    }
     
-    # 输出路径输入
+    # Output path input
     $defaultOutput = Join-Path $PSScriptRoot "dist\$Version"
+    $validOutput = $false
     
-    do {
+    while (-not $validOutput) {
         Write-Host ""
-        $inputOutput = Read-Host "请输入输出路径 (默认: $defaultOutput)"
+        $inputOutput = Read-Host "Enter output path (default: $defaultOutput)"
         
         if ([string]::IsNullOrWhiteSpace($inputOutput)) {
             $Output = $defaultOutput
-            Write-Info "使用默认输出路径: $Output"
-            break
+            Write-Info "Using output path: $Output"
+            $validOutput = $true
         }
-        
-        # 处理相对路径
-        if (-not [System.IO.Path]::IsPathRooted($inputOutput)) {
+        elseif (-not [System.IO.Path]::IsPathRooted($inputOutput)) {
             $Output = Join-Path $PSScriptRoot $inputOutput
+            Write-Info "Using output path: $Output"
+            $validOutput = $true
         }
         else {
             $Output = $inputOutput
+            Write-Info "Using output path: $Output"
+            $validOutput = $true
         }
-        
-        Write-Info "使用自定义输出路径: $Output"
-        break
-    } while ($true)
+    }
     
     return @{
         Version = $Version
@@ -264,92 +259,91 @@ function Invoke-InteractiveMode {
 function Main {
     $startTime = Get-Date
     
-    Write-Header "BaseFit Android APK 自动化打包工具"
-    Write-Host "  项目路径: $PSScriptRoot" -ForegroundColor Gray
+    Write-Header "BaseFit Android APK Build Tool"
+    Write-Host "  Project: $PSScriptRoot" -ForegroundColor Gray
     Write-Host ""
     
-    # 确定模式
+    # Determine mode
     if ([string]::IsNullOrWhiteSpace($Version) -and [string]::IsNullOrWhiteSpace($Output)) {
         $result = Invoke-InteractiveMode
         $Version = $result.Version
         $Output = $result.Output
     }
     else {
-        # 参数模式
-        Write-Header "参数模式"
+        Write-Header "Parameter Mode"
         
-        # 处理版本号
+        # Handle version
         if ([string]::IsNullOrWhiteSpace($Version)) {
             $currentVersion = Get-CurrentVersion
             $Version = Increment-Version $currentVersion
-            Write-Info "自动生成版本号: $Version"
+            Write-Info "Auto version: $Version"
         }
         elseif (-not (Test-SemanticVersion $Version)) {
-            Write-Error "版本号格式无效: $Version"
-            Write-Info "请使用 x.y.z 格式 (如 1.0.0)"
+            Write-Error "Invalid version format: $Version"
+            Write-Info "Use x.y.z format (e.g. 1.0.0)"
             exit 1
         }
         else {
-            Write-Info "使用指定版本号: $Version"
+            Write-Info "Version: $Version"
         }
         
-        # 处理输出路径
+        # Handle output path
         if ([string]::IsNullOrWhiteSpace($Output)) {
             $Output = Join-Path $PSScriptRoot "dist\$Version"
-            Write-Info "使用默认输出路径: $Output"
+            Write-Info "Output: $Output"
         }
         elseif (-not [System.IO.Path]::IsPathRooted($Output)) {
             $Output = Join-Path $PSScriptRoot $Output
-            Write-Info "使用输出路径: $Output"
+            Write-Info "Output: $Output"
         }
         else {
-            Write-Info "使用输出路径: $Output"
+            Write-Info "Output: $Output"
         }
     }
     
-    # 执行打包流程
+    # Execute build process
     try {
-        # 1. 更新 build.gradle.kts
+        # 1. Update build.gradle.kts
         if (-not (Update-BuildGradleVersion -NewVersion $Version)) {
-            throw "更新版本号失败"
+            throw "Failed to update version"
         }
         
-        # 2. 执行构建
+        # 2. Execute build
         if (-not (Invoke-AndroidBuild)) {
-            throw "构建失败"
+            throw "Build failed"
         }
         
-        # 3. 复制输出
+        # 3. Copy output
         if (-not (Copy-BuildOutput -OutputPath $Output -Version $Version)) {
-            throw "复制构建产物失败"
+            throw "Failed to copy APK"
         }
         
-        # 4. 生成版本信息
+        # 4. Generate version info
         $versionInfoFile = New-VersionInfoFile -OutputPath $Output -Version $Version
         
-        # 完成
+        # Complete
         $endTime = Get-Date
         $duration = ($endTime - $startTime).TotalSeconds
         
-        Write-Header "打包完成！"
+        Write-Header "Build Complete!"
         Write-Host ""
-        Write-Success "版本号: $Version"
-        Write-Success "输出路径: $Output"
-        Write-Success "APK 文件: BaseFit-v$Version.apk"
-        Write-Success "版本信息: $versionInfoFile"
+        Write-Success "Version: $Version"
+        Write-Success "Output: $Output"
+        Write-Success "APK: BaseFit-v$Version.apk"
+        Write-Success "Info: $versionInfoFile"
         Write-Host ""
-        Write-Info "耗时: $([math]::Round($duration, 2)) 秒"
+        Write-Info "Time: $([math]::Round($duration, 2)) seconds"
         Write-Host ""
         
         return 0
     }
     catch {
-        Write-Header "打包失败"
+        Write-Header "Build Failed"
         Write-Error $_.Exception.Message
         Write-Host ""
         return 1
     }
 }
 
-# 运行主函数
+# Run main function
 exit Main
