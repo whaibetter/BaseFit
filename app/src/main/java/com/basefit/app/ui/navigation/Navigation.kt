@@ -97,6 +97,19 @@ fun BaseFitNavGraph(
             CheckInScreen(
                 exerciseId = exerciseId,
                 date = date,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToExerciseDetail = { id ->
+                    navController.navigate(Screen.ExerciseDetail.createRoute(id))
+                }
+            )
+        }
+        
+        composable(
+            route = Screen.ExerciseDetail.route
+        ) { backStackEntry ->
+            val exerciseId = backStackEntry.arguments?.getString("exerciseId")?.toLongOrNull() ?: 0L
+            ExerciseDetailScreen(
+                exerciseId = exerciseId,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

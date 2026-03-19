@@ -11,14 +11,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.basefit.app.data.entity.ResourceType
+import com.basefit.app.ui.components.ResourceViewer
 import com.basefit.app.ui.theme.*
 import com.basefit.app.viewmodel.CheckInViewModel
+import com.basefit.app.viewmodel.ResourceViewModel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -29,12 +34,15 @@ fun CheckInScreen(
     exerciseId: Long,
     date: Long,
     onNavigateBack: () -> Unit,
-    viewModel: CheckInViewModel = viewModel()
+    onNavigateToExerciseDetail: (Long) -> Unit = {},
+    viewModel: CheckInViewModel = viewModel(),
+    resourceViewModel: ResourceViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     var exerciseName by remember { mutableStateOf("") }
+    var exerciseDescription by remember { mutableStateOf<String?>(null) }
     var sets by remember { mutableStateOf("") }
     var reps by remember { mutableStateOf("") }
     var weight by remember { mutableStateOf("") }
@@ -42,10 +50,15 @@ fun CheckInScreen(
     var notes by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(true) }
 
+    val resourceState by resourceViewModel.state.collectAsState()
+
     LaunchedEffect(exerciseId) {
         val exercise = viewModel.getExercise(exerciseId)
         exerciseName = exercise?.name ?: ""
+        exerciseDescription = exercise?.description
         isLoading = false
+        
+        resourceViewModel.loadResources(exerciseId)
     }
 
     val dateFormat = SimpleDateFormat("yyyy年MM月dd日", Locale.getDefault())
@@ -65,6 +78,11 @@ fun CheckInScreen(
                         Icon(Icons.Default.ArrowBack, "返回")
                     }
                 },
+                actions = {
+                    IconButton(onClick = { onNavigateToExerciseDetail(exerciseId) }) {
+                        Icon(Icons.Default.Edit, "编辑动作")
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Background,
                     titleContentColor = TextPrimary
@@ -77,7 +95,7 @@ fun CheckInScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentAlignment = androidx.compose.ui.Alignment.Center
+                contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator()
             }
@@ -90,7 +108,6 @@ fun CheckInScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp)
             ) {
-                // Exercise name card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -111,12 +128,39 @@ fun CheckInScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextSecondary
                         )
+                        exerciseDescription?.let { desc ->
+                            if (desc.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = desc,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextSecondary
+                                )
+                            }
+                        }
                     }
+                }
+
+                if (!resourceState.isLoading && resourceState.resources.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Text(
+                        text = "动作演示",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    ResourceViewer(
+                        resources = resourceState.resources,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Input fields
                 OutlinedTextField(
                     value = sets,
                     onValueChange = { sets = it.filter { c -> c.isDigit() } },
@@ -192,7 +236,6 @@ fun CheckInScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Save button
                 Button(
                     onClick = {
                         val setsInt = sets.toIntOrNull() ?: 0
