@@ -130,6 +130,8 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
 
     fun loadExercises() {
         viewModelScope.launch {
+            _state.update { it.copy(isLoading = true) }
+            repository.seedDefaultExercisesIfNeeded()
             repository.getAllActiveExercises()
                 .catch { _state.update { it.copy(isLoading = false) } }
                 .collect { exercises ->
@@ -290,10 +292,8 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
             calendar.add(Calendar.MONTH, 1)
             val monthEnd = calendar.timeInMillis - 1
 
-            val allCheckIns = checkNotNull(
-                repository.getAllCheckIns().first()
-                    .filter { it.date in monthStart..monthEnd }
-            )
+            val allCheckIns = repository.getAllCheckIns().first()
+                .filter { it.date in monthStart..monthEnd }
 
             val checkInsWithExercise = allCheckIns.mapNotNull { checkIn ->
                 val exercise = exercises.find { it.id == checkIn.exerciseId }

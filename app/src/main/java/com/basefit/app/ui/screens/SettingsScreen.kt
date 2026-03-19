@@ -42,6 +42,7 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     var showExerciseList by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<Exercise?>(null) }
+    var showAboutDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -110,8 +111,8 @@ fun SettingsScreen(
                     SettingsItem(
                         icon = Icons.Default.Info,
                         title = "关于",
-                        subtitle = "BaseFit v1.0",
-                        onClick = { }
+                        subtitle = "版本信息 · 使用帮助",
+                        onClick = { showAboutDialog = true }
                     )
                 }
             }
@@ -187,6 +188,80 @@ fun SettingsScreen(
                 }
             )
         }
+
+        // About Dialog
+        if (showAboutDialog) {
+            AlertDialog(
+                onDismissRequest = { showAboutDialog = false },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.FitnessCenter,
+                            contentDescription = null,
+                            tint = Primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("BaseFit")
+                    }
+                },
+                text = {
+                    Column {
+                        Text(
+                            text = "版本 1.0.0",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "BaseFit 是一款简洁易用的健身打卡应用，帮助你记录每日训练，追踪健身进度。",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HorizontalDivider()
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "功能特点",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        FeatureItem("自定义健身动作库")
+                        FeatureItem("周计划管理")
+                        FeatureItem("挑战任务")
+                        FeatureItem("每日打卡记录")
+                        FeatureItem("训练数据统计")
+                        FeatureItem("动作资源展示")
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showAboutDialog = false }) {
+                        Text("知道了")
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun FeatureItem(text: String) {
+    Row(
+        modifier = Modifier.padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            Icons.Default.Check,
+            contentDescription = null,
+            tint = Success,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = TextSecondary
+        )
     }
 }
 

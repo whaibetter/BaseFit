@@ -398,6 +398,32 @@ class FitRepository(context: Context) {
             }
         }
     }
+
+    suspend fun seedDefaultExercisesIfNeeded() {
+        val existingExercises = exerciseDao.getAllActive().first()
+        if (existingExercises.isEmpty()) {
+            val defaultExercises = listOf(
+                Exercise(name = "俯卧撑", category = ExerciseCategory.BODYWEIGHT),
+                Exercise(name = "深蹲", category = ExerciseCategory.BODYWEIGHT),
+                Exercise(name = "平板支撑", category = ExerciseCategory.BODYWEIGHT),
+                Exercise(name = "仰卧起坐", category = ExerciseCategory.BODYWEIGHT),
+                Exercise(name = "引体向上", category = ExerciseCategory.BODYWEIGHT),
+                Exercise(name = "卧推", category = ExerciseCategory.STRENGTH),
+                Exercise(name = "硬拉", category = ExerciseCategory.STRENGTH),
+                Exercise(name = "哑铃弯举", category = ExerciseCategory.STRENGTH),
+                Exercise(name = "哑铃肩推", category = ExerciseCategory.STRENGTH),
+                Exercise(name = "杠铃深蹲", category = ExerciseCategory.STRENGTH),
+                Exercise(name = "跑步", category = ExerciseCategory.CARDIO),
+                Exercise(name = "快走", category = ExerciseCategory.CARDIO),
+                Exercise(name = "跳绳", category = ExerciseCategory.CARDIO),
+                Exercise(name = "游泳", category = ExerciseCategory.CARDIO),
+                Exercise(name = "骑行", category = ExerciseCategory.CARDIO)
+            )
+            defaultExercises.forEach { exercise ->
+                exerciseDao.insert(exercise)
+            }
+        }
+    }
 }
 
 // Helper class for today's plan

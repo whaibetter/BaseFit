@@ -29,8 +29,8 @@ android {
         applicationId = "com.basefit.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 5
-        versionName = "1.0.3"
+        versionCode = 10
+        versionName = "1.0.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -49,6 +49,7 @@ android {
         }
         debug {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     
