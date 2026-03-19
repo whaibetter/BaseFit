@@ -388,3 +388,138 @@ class CheckInViewModel(application: Application) : AndroidViewModel(application)
 
     suspend fun getExercise(id: Long): Exercise? = repository.getExerciseById(id)
 }
+
+data class ResourceState(
+    val resources: List<ExerciseResource> = emptyList(),
+    val isLoading: Boolean = true
+)
+
+class ResourceViewModel(application: Application) : AndroidViewModel(application) {
+    private val repository = FitRepository.getRepository(application)
+    
+    private val _state = MutableStateFlow(ResourceState())
+    val state: StateFlow<ResourceState> = _state
+
+    private var currentExerciseId: Long = 0
+
+    fun loadResources(exerciseId: Long) {
+        currentExerciseId = exerciseId
+        viewModelScope.launch {
+            repository.getResourcesForExercise(exerciseId)
+                .catch { _state.update { it.copy(isLoading = false) } }
+                .collect { resources ->
+                    _state.update { it.copy(resources = resources, isLoading = false) }
+                }
+        }
+    }
+
+    fun addResource(
+        exerciseId: Long,
+        resourceType: ResourceType,
+        resourcePath: String,
+        thumbnailPath: String? = null,
+        displayName: String? = null,
+        fileSize: Long? = null,
+        duration: Int? = null
+    ) {
+        viewModelScope.launch {
+            val sortOrder = repository.getNextSortOrder(exerciseId)
+            repository.insertResource(
+                ExerciseResource(
+                    exerciseId = exerciseId,
+                    resourceType = resourceType,
+                    resourcePath = resourcePath,
+                    thumbnailPath = thumbnailPath,
+                    displayName = displayName,
+                    fileSize = fileSize,
+                    duration = duration,
+                    sortOrder = sortOrder
+                )
+            )
+        }
+    }
+
+    fun deleteResource(resource: ExerciseResource) {
+        viewModelScope.launch {
+            repository.deleteResource(resource)
+        }
+    }
+
+    fun deleteResourceById(id: Long) {
+        viewModelScope.launch {
+            repository.deleteResourceById(id)
+        }
+    }
+}
+
+data class ExerciseDetailState(
+    val exercise: Exercise? = null,
+    val resources: List<ExerciseResource> = emptyList(),
+    val isLoading: Boolean = true
+)
+
+class ExerciseDetailViewModel(application: Application) : AndroidViewModel(application) {
+    private val repository = FitRepository.getRepository(application)
+    
+    private val _state = MutableStateFlow(ExerciseDetailState())
+    val state: StateFlow<ExerciseDetailState> = _state
+
+    fun loadExercise(exerciseId: Long) {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true) }
+            
+            val exercise = repository.getExerciseById(exerciseId)
+            val resources = repository.getResourcesForExercise(exerciseId).first()
+            
+            _state.update { 
+                it.copy(
+                    exercise = exercise,
+                    resources = resources,
+                    isLoading = false
+                )
+            }
+        }
+    }
+
+    fun updateExerciseDescription(exerciseId: Long, description: String) {
+        viewModelScope.launch {
+            val exercise = repository.getExerciseById(exerciseId) ?: return@launch
+            repository.updateExercise(exercise.copy(description = description))
+            loadExercise(exerciseId)
+        }
+    }
+
+    fun addResource(
+        resourceType: ResourceType,
+        resourcePath: String,
+        thumbnailPath: String? = null,
+        displayName: String? = null,
+        fileSize: Long? = null,
+        duration: Int? = null
+    ) {
+        val exerciseId = _state.value.exercise?.id ?: return
+        viewModelScope.launch {
+            val sortOrder = repository.getNextSortOrder(exerciseId)
+            repository.insertResource(
+                ExerciseResource(
+                    exerciseId = exerciseId,
+                    resourceType = resourceType,
+                    resourcePath = resourcePath,
+                    thumbnailPath = thumbnailPath,
+                    displayName = displayName,
+                    fileSize = fileSize,
+                    duration = duration,
+                    sortOrder = sortOrder
+                )
+            )
+            loadExercise(exerciseId)
+        }
+    }
+
+    fun deleteResource(resource: ExerciseResource) {
+        viewModelScope.launch {
+            repository.deleteResource(resource)
+            _state.value.exercise?.id?.let { loadExercise(it) }
+        }
+    }
+}

@@ -36,6 +36,8 @@ fun RecordScreen(
     val monthNames = listOf("一月", "二月", "三月", "四月", "五月", "六月",
         "七月", "八月", "九月", "十月", "十一月", "十二月")
 
+    var selectedDay by remember { mutableStateOf<Int?>(null) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -85,7 +87,22 @@ fun RecordScreen(
                 month = state.currentMonth,
                 checkInData = state.calendarData,
                 onDayClick = { day ->
-                    // Could navigate to day detail
+                    val calendar = Calendar.getInstance()
+                    calendar.set(state.currentYear, state.currentMonth - 1, day, 0, 0, 0)
+                    calendar.set(Calendar.MILLISECOND, 0)
+                    val dayTimestamp = calendar.timeInMillis
+                    
+                    // Get exercises for the day and navigate to check-in
+                    val exercises = state.checkIns.filter {
+                        val checkInCalendar = Calendar.getInstance()
+                        checkInCalendar.timeInMillis = it.checkIn.date
+                        checkInCalendar.get(Calendar.DAY_OF_MONTH) == day
+                    }
+                    
+                    if (exercises.isNotEmpty()) {
+                        // Navigate to the first exercise for this day
+                        onNavigateToCheckIn(exercises.first().exercise.id, dayTimestamp)
+                    }
                 }
             )
 

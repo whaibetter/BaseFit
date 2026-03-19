@@ -29,8 +29,8 @@ android {
         applicationId = "com.basefit.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 4
+        versionName = "1.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -108,6 +108,11 @@ dependencies {
     implementation("com.github.patrykandpatrick.vico:compose:1.2.0")
     implementation("com.github.patrykandpatrick.vico:compose-m3:1.2.0")
     implementation("com.github.patrykandpatrick.vico:core:1.2.0")
+
+    // Image Loading - Coil
+    implementation("io.coil-kt:coil-compose:2.5.0")
+    implementation("io.coil-kt:coil-gif:2.5.0")
+    implementation("io.coil-kt:coil-video:2.5.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

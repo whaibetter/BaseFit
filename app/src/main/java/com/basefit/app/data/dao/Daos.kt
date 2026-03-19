@@ -152,3 +152,36 @@ interface CheckInDao {
     """)
     suspend fun getTotalRepsInRange(exerciseId: Long, startDate: Long, endDate: Long): Int?
 }
+
+@Dao
+interface ExerciseResourceDao {
+    @Query("SELECT * FROM exercise_resources WHERE exerciseId = :exerciseId AND isActive = 1 ORDER BY sortOrder ASC")
+    fun getByExercise(exerciseId: Long): Flow<List<ExerciseResource>>
+
+    @Query("SELECT * FROM exercise_resources WHERE id = :id")
+    suspend fun getById(id: Long): ExerciseResource?
+
+    @Query("SELECT * FROM exercise_resources WHERE exerciseId = :exerciseId AND resourceType = :type AND isActive = 1 ORDER BY sortOrder ASC")
+    fun getByExerciseAndType(exerciseId: Long, type: ResourceType): Flow<List<ExerciseResource>>
+
+    @Query("SELECT MAX(sortOrder) FROM exercise_resources WHERE exerciseId = :exerciseId")
+    suspend fun getMaxSortOrder(exerciseId: Long): Int?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(resource: ExerciseResource): Long
+
+    @Update
+    suspend fun update(resource: ExerciseResource)
+
+    @Delete
+    suspend fun delete(resource: ExerciseResource)
+
+    @Query("DELETE FROM exercise_resources WHERE exerciseId = :exerciseId")
+    suspend fun deleteByExercise(exerciseId: Long)
+
+    @Query("DELETE FROM exercise_resources WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    @Query("UPDATE exercise_resources SET sortOrder = :sortOrder WHERE id = :id")
+    suspend fun updateSortOrder(id: Long, sortOrder: Int)
+}

@@ -30,6 +30,12 @@ val BodyweightColor = Color(0xFF3B82F6)
 val StrengthColor = Color(0xFF8B5CF6)
 val CardioColor = Color(0xFFF97316)
 
+// Resource type colors
+val Purple40 = Color(0xFF9C27B0)
+val Green40 = Color(0xFF4CAF50)
+val Orange40 = Color(0xFFFF5722)
+val Blue40 = Color(0xFF2196F3)
+
 private val LightColorScheme = lightColorScheme(
     primary = Primary,
     onPrimary = Color.White,

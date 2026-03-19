@@ -23,6 +23,7 @@ class FitRepository(context: Context) {
     private val weekPlanDao = database.weekPlanDao()
     private val challengePlanDao = database.challengePlanDao()
     private val checkInDao = database.checkInDao()
+    private val exerciseResourceDao = database.exerciseResourceDao()
 
     // Exercise operations
     fun getAllExercises(): Flow<List<Exercise>> = exerciseDao.getAll()
@@ -36,6 +37,25 @@ class FitRepository(context: Context) {
     suspend fun updateExercise(exercise: Exercise) = exerciseDao.update(exercise)
 
     suspend fun deleteExercise(exercise: Exercise) = exerciseDao.delete(exercise)
+
+    // Exercise Resource operations
+    fun getResourcesForExercise(exerciseId: Long): Flow<List<ExerciseResource>> = 
+        exerciseResourceDao.getByExercise(exerciseId)
+
+    suspend fun getResourceById(id: Long): ExerciseResource? = exerciseResourceDao.getById(id)
+
+    suspend fun insertResource(resource: ExerciseResource): Long = exerciseResourceDao.insert(resource)
+
+    suspend fun updateResource(resource: ExerciseResource) = exerciseResourceDao.update(resource)
+
+    suspend fun deleteResource(resource: ExerciseResource) = exerciseResourceDao.delete(resource)
+
+    suspend fun deleteResourceById(id: Long) = exerciseResourceDao.deleteById(id)
+
+    suspend fun getNextSortOrder(exerciseId: Long): Int {
+        val maxOrder = exerciseResourceDao.getMaxSortOrder(exerciseId)
+        return (maxOrder ?: -1) + 1
+    }
 
     // WeekPlan operations
     fun getWeekPlansForDay(dayOfWeek: Int): Flow<List<WeekPlan>> = 
