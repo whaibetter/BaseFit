@@ -38,6 +38,10 @@ fun HomeScreen(
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
 
+    LaunchedEffect(Unit) {
+        viewModel.loadTodayPlans()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -48,11 +52,27 @@ fun HomeScreen(
                         fontSize = 20.sp
                     )
                 },
+                actions = {
+                    IconButton(onClick = { viewModel.loadTodayPlans() }) {
+                        Icon(Icons.Default.Refresh, "刷新")
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Background,
                     titleContentColor = TextPrimary
                 )
             )
+        },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = onNavigateToPlan,
+                containerColor = Primary,
+                contentColor = Color.White
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("添加记录")
+            }
         }
     ) { padding ->
         Column(
@@ -70,7 +90,7 @@ fun HomeScreen(
 
             // Today's Plan
             Text(
-                text = "今日计划",
+                text = if (state.todayPlans.isNotEmpty()) "今日计划" else "计划",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary,

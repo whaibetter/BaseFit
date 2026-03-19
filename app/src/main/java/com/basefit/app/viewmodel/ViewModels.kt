@@ -44,7 +44,15 @@ data class RecordState(
     val calendarData: Map<Long, Int> = emptyMap(),
     val currentMonth: Int = Calendar.getInstance().get(Calendar.MONTH) + 1,
     val currentYear: Int = Calendar.getInstance().get(Calendar.YEAR),
+    val selectedDatePlans: List<PlanForDay> = emptyList(),
+    val selectedDateCheckIns: List<CheckInWithExercise> = emptyList(),
     val isLoading: Boolean = true
+)
+
+data class PlanForDay(
+    val weekPlan: WeekPlan?,
+    val challenge: ChallengePlan?,
+    val exercise: Exercise
 )
 
 data class CheckInWithExercise(
@@ -270,12 +278,11 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
 
     fun loadMonth(year: Int, month: Int) {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true) }
+            _state.update { it.copy(isLoading = true, selectedDatePlans = emptyList(), selectedDateCheckIns = emptyList()) }
             
             val calendarData = repository.getCalendarData(year, month)
             val exercises = repository.getAllActiveExercises().first()
             
-            // Get all check-ins for the month
             val calendar = Calendar.getInstance()
             calendar.set(year, month - 1, 1, 0, 0, 0)
             calendar.set(Calendar.MILLISECOND, 0)
@@ -303,6 +310,61 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
                 )
             }
         }
+    }
+
+    fun selectDate(day: Int) {
+        viewModelScope.launch {
+            val year = _state.value.currentYear
+            val month = _state.value.currentMonth
+            
+            val calendar = Calendar.getInstance()
+            calendar.set(year, month - 1, day, 0, 0, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+            val dayStart = calendar.timeInMillis
+            val dayEnd = dayStart + 24 * 60 * 60 * 1000 - 1
+
+            val exercises = repository.getAllActiveExercises().first()
+            
+            calendar.set(year, month - 1, day, 0, 0, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+            val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+            val adjustedDay = if (dayOfWeek == Calendar.SUNDAY) 7 else dayOfWeek - 1
+
+            val weekPlans = repository.getWeekPlansForDay(adjustedDay).first()
+            val plansForDay = weekPlans.mapNotNull { plan ->
+                val exercise = exercises.find { it.id == plan.exerciseId }
+                if (exercise != null) PlanForDay(weekPlan = plan, challenge = null, exercise = exercise) else null
+            }
+
+            val challenges = repository.getAllActiveChallenges().first()
+            val activeChallenges = challenges.filter { challenge ->
+                dayStart >= challenge.startDate && dayStart <= challenge.endDate
+            }
+            val challengePlansForDay = activeChallenges.mapNotNull { challenge ->
+                val exercise = exercises.find { it.id == challenge.exerciseId }
+                if (exercise != null) PlanForDay(weekPlan = null, challenge = challenge, exercise = exercise) else null
+            }
+
+            val allPlans = (plansForDay + challengePlansForDay).distinctBy { it.exercise.id }
+
+            val checkInsForDay = repository.getAllCheckIns().first()
+                .filter { it.date in dayStart..dayEnd }
+                .mapNotNull { checkIn ->
+                    val exercise = exercises.find { it.id == checkIn.exerciseId }
+                    if (exercise != null) CheckInWithExercise(checkIn, exercise) else null
+                }
+
+            _state.update {
+                it.copy(
+                    selectedDatePlans = allPlans,
+                    selectedDateCheckIns = checkInsForDay
+                )
+            }
+        }
+    }
+
+    fun clearSelectedDate() {
+        _state.update { it.copy(selectedDatePlans = emptyList(), selectedDateCheckIns = emptyList()) }
     }
 
     fun previousMonth() {

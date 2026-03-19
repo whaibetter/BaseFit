@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -41,11 +42,22 @@ fun RecordScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { 
+                title = {
                     Text(
-                        "打卡记录",
+                        if (selectedDay != null) "${state.currentYear}年${state.currentMonth}月${selectedDay}日"
+                        else "打卡记录",
                         fontWeight = FontWeight.SemiBold
                     )
+                },
+                navigationIcon = {
+                    if (selectedDay != null) {
+                        IconButton(onClick = {
+                            selectedDay = null
+                            viewModel.clearSelectedDate()
+                        }) {
+                            Icon(Icons.Default.ArrowBack, "返回")
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Background,
@@ -86,29 +98,45 @@ fun RecordScreen(
                 year = state.currentYear,
                 month = state.currentMonth,
                 checkInData = state.calendarData,
+                selectedDay = selectedDay,
                 onDayClick = { day ->
-                    val calendar = Calendar.getInstance()
-                    calendar.set(state.currentYear, state.currentMonth - 1, day, 0, 0, 0)
-                    calendar.set(Calendar.MILLISECOND, 0)
-                    val dayTimestamp = calendar.timeInMillis
-                    
-                    // Get exercises for the day and navigate to check-in
-                    val exercises = state.checkIns.filter {
-                        val checkInCalendar = Calendar.getInstance()
-                        checkInCalendar.timeInMillis = it.checkIn.date
-                        checkInCalendar.get(Calendar.DAY_OF_MONTH) == day
-                    }
-                    
-                    if (exercises.isNotEmpty()) {
-                        // Navigate to the first exercise for this day
-                        onNavigateToCheckIn(exercises.first().exercise.id, dayTimestamp)
-                    }
+                    selectedDay = day
+                    viewModel.selectDate(day)
                 }
             )
 
+            // Selected day detail
+            if (selectedDay != null && state.selectedDatePlans.isNotEmpty()) {
+                Text(
+                    text = "计划",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
+                )
+                LazyColumn(
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.heightIn(max = 200.dp)
+                ) {
+                    items(state.selectedDatePlans, key = { it.exercise.id }) { planItem ->
+                        PlanItemCard(
+                            planItem = planItem,
+                            checkIn = state.selectedDateCheckIns.find { it.exercise.id == planItem.exercise.id },
+                            onCheckIn = {
+                                val calendar = Calendar.getInstance()
+                                calendar.set(state.currentYear, state.currentMonth - 1, selectedDay!!, 0, 0, 0)
+                                calendar.set(Calendar.MILLISECOND, 0)
+                                val dayTimestamp = calendar.timeInMillis
+                                onNavigateToCheckIn(planItem.exercise.id, dayTimestamp)
+                            }
+                        )
+                    }
+                }
+            }
+
             // Recent records
             Text(
-                text = "本月记录",
+                text = if (selectedDay != null) "打卡记录" else "本月记录",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
@@ -123,38 +151,52 @@ fun RecordScreen(
                 ) {
                     CircularProgressIndicator()
                 }
-            } else if (state.checkIns.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Default.History,
-                            contentDescription = null,
-                            tint = TextHint,
-                            modifier = Modifier.size(64.dp)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "本月暂无记录",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary
-                        )
-                    }
-                }
             } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(state.checkIns, key = { it.checkIn.id }) { item ->
-                        CheckInRecordCard(
-                            item = item,
-                            onClick = { }
-                        )
+                val displayCheckIns = if (selectedDay != null) state.selectedDateCheckIns else state.checkIns
+                if (displayCheckIns.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Default.History,
+                                contentDescription = null,
+                                tint = TextHint,
+                                modifier = Modifier.size(64.dp)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = if (selectedDay != null) "当日暂无记录" else "本月暂无记录",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(displayCheckIns, key = { it.checkIn.id }) { item ->
+                            CheckInRecordCard(
+                                item = item,
+                                onClick = {
+                                    val calendar = Calendar.getInstance()
+                                    calendar.timeInMillis = item.checkIn.date
+                                    val day = calendar.get(Calendar.DAY_OF_MONTH)
+                                    val month = calendar.get(Calendar.MONTH) + 1
+                                    val year = calendar.get(Calendar.YEAR)
+                                    selectedDay = day
+                                    val dayCalendar = Calendar.getInstance()
+                                    dayCalendar.set(year, month - 1, day, 0, 0, 0)
+                                    dayCalendar.set(Calendar.MILLISECOND, 0)
+                                    onNavigateToCheckIn(item.exercise.id, dayCalendar.timeInMillis)
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -167,6 +209,7 @@ private fun CalendarGrid(
     year: Int,
     month: Int,
     checkInData: Map<Long, Int>,
+    selectedDay: Int?,
     onDayClick: (Int) -> Unit
 ) {
     val calendar = Calendar.getInstance()
@@ -234,6 +277,7 @@ private fun CalendarGrid(
                             val isToday = today.get(Calendar.YEAR) == year &&
                                     today.get(Calendar.MONTH) == month - 1 &&
                                     today.get(Calendar.DAY_OF_MONTH) == currentDay
+                            val isSelected = selectedDay == currentDay
 
                             Box(
                                 modifier = Modifier
@@ -241,6 +285,7 @@ private fun CalendarGrid(
                                     .clip(CircleShape)
                                     .background(
                                         when {
+                                            isSelected -> Primary
                                             checkInCount > 0 -> Success.copy(alpha = 0.2f)
                                             isToday -> Primary.copy(alpha = 0.1f)
                                             else -> Surface
@@ -253,17 +298,119 @@ private fun CalendarGrid(
                                     text = "$currentDay",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = when {
+                                        isSelected -> Color.White
                                         checkInCount > 0 -> Success
                                         isToday -> Primary
                                         else -> TextPrimary
                                     },
-                                    fontWeight = if (isToday || checkInCount > 0) FontWeight.SemiBold else FontWeight.Normal
+                                    fontWeight = if (isToday || checkInCount > 0 || isSelected) FontWeight.SemiBold else FontWeight.Normal
                                 )
                             }
                             
                             dayCounter++
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlanItemCard(
+    planItem: PlanForDay,
+    checkIn: CheckInWithExercise?,
+    onCheckIn: () -> Unit
+) {
+    val categoryColor = when (planItem.exercise.category) {
+        ExerciseCategory.BODYWEIGHT -> BodyweightColor
+        ExerciseCategory.STRENGTH -> StrengthColor
+        ExerciseCategory.CARDIO -> CardioColor
+    }
+
+    val isCompleted = checkIn != null
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isCompleted)
+                Success.copy(alpha = 0.1f)
+            else
+                Surface
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(categoryColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = planItem.exercise.name.first().toString(),
+                    color = categoryColor,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = planItem.exercise.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                planItem.weekPlan?.let { weekPlan ->
+                    Text(
+                        text = "目标: ${weekPlan.targetSets}组 × ${weekPlan.targetReps}次",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                }
+                planItem.challenge?.let { challenge ->
+                    Text(
+                        text = "挑战: ${challenge.name}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                }
+                if (isCompleted && checkIn != null) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "已完成: ${checkIn.checkIn.completedSets}组 × ${checkIn.checkIn.completedReps}次",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Success
+                    )
+                }
+            }
+
+            if (isCompleted) {
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = "已完成",
+                    tint = Success,
+                    modifier = Modifier.size(24.dp)
+                )
+            } else {
+                IconButton(onClick = onCheckIn) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "添加打卡",
+                        tint = Primary,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
             }
         }
@@ -284,7 +431,9 @@ private fun CheckInRecordCard(
     val dateFormat = SimpleDateFormat("MM/dd HH:mm", Locale.getDefault())
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Surface)
     ) {
