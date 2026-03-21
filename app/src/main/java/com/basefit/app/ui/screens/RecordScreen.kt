@@ -1,6 +1,7 @@
 package com.basefit.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -33,6 +34,16 @@ fun RecordScreen(
     bottomBarPadding: PaddingValues = PaddingValues()
 ) {
     val state by viewModel.state.collectAsState()
+    val selectedDate = state.selectedDate
+    
+    // 根据选中日期筛选记录
+    val displayedCheckIns = remember(state.checkIns, selectedDate) {
+        if (selectedDate != null) {
+            state.checkIns.filter { it.checkIn.date == selectedDate }
+        } else {
+            state.checkIns
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -82,21 +93,48 @@ fun RecordScreen(
 
             // Calendar
             item {
+                val selDate = selectedDate
                 CalendarGrid(
                     year = state.currentYear,
                     month = state.currentMonth,
-                    checkInData = state.calendarData
+                    checkInData = state.calendarData,
+                    selectedDate = selDate,
+                    onDateSelected = { viewModel.selectDate(it) }
                 )
             }
 
-            // Monthly records header
+            // Records header with clear button
             item {
-                Text(
-                    text = "本月记录",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (selectedDate != null) {
+                            val dateFormat = SimpleDateFormat("M月d日", Locale.getDefault())
+                            "${dateFormat.format(Date(selectedDate))}的记录"
+                        } else {
+                            "本月记录"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    
+                    if (selectedDate != null) {
+                        TextButton(onClick = { viewModel.selectDate(null) }) {
+                            Text("查看全部", color = Primary)
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "清除选择",
+                                tint = Primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
             }
 
             if (state.isLoading) {
@@ -110,7 +148,7 @@ fun RecordScreen(
                         CircularProgressIndicator()
                     }
                 }
-            } else if (state.checkIns.isEmpty()) {
+            } else if (displayedCheckIns.isEmpty()) {
                 item {
                     Box(
                         modifier = Modifier
@@ -127,7 +165,7 @@ fun RecordScreen(
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "本月暂无记录",
+                                text = if (selectedDate != null) "当天暂无记录" else "本月暂无记录",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = TextSecondary
                             )
@@ -135,7 +173,7 @@ fun RecordScreen(
                     }
                 }
             } else {
-                items(state.checkIns, key = { it.checkIn.id }) { item ->
+                items(displayedCheckIns, key = { it.checkIn.id }) { item ->
                     CheckInRecordCard(
                         item = item,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
@@ -155,7 +193,9 @@ fun RecordScreen(
 private fun CalendarGrid(
     year: Int,
     month: Int,
-    checkInData: Map<Long, Int>
+    checkInData: Map<Long, Int>,
+    selectedDate: Long?,
+    onDateSelected: (Long?) -> Unit
 ) {
     val calendar = Calendar.getInstance()
     calendar.set(year, month - 1, 1)
@@ -222,6 +262,8 @@ private fun CalendarGrid(
                             val isToday = today.get(Calendar.YEAR) == year &&
                                     today.get(Calendar.MONTH) == month - 1 &&
                                     today.get(Calendar.DAY_OF_MONTH) == currentDay
+                            
+                            val isSelected = selectedDate == dayTimestamp
 
                             Box(
                                 modifier = Modifier
@@ -229,22 +271,27 @@ private fun CalendarGrid(
                                     .clip(CircleShape)
                                     .background(
                                         when {
+                                            isSelected -> Primary
                                             checkInCount > 0 -> Success.copy(alpha = 0.2f)
                                             isToday -> Primary.copy(alpha = 0.1f)
                                             else -> Color.Transparent
                                         }
-                                    ),
+                                    )
+                                    .clickable(enabled = checkInCount > 0) {
+                                        onDateSelected(if (isSelected) null else dayTimestamp)
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = "$currentDay",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = when {
+                                        isSelected -> Color.White
                                         checkInCount > 0 -> Success
                                         isToday -> Primary
                                         else -> TextPrimary
                                     },
-                                    fontWeight = if (isToday || checkInCount > 0) FontWeight.SemiBold else FontWeight.Normal
+                                    fontWeight = if (isToday || checkInCount > 0 || isSelected) FontWeight.SemiBold else FontWeight.Normal
                                 )
                             }
 

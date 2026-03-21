@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![BaseFit Logo](https://via.placeholder.com/120x120/4A90D9/FFFFFF?text=BF)
+![BaseFit Logo](app_icon.jpg)
 
 **A modern fitness tracking app built with Jetpack Compose**
 

@@ -44,6 +44,7 @@ data class RecordState(
     val calendarData: Map<Long, Int> = emptyMap(),
     val currentMonth: Int = Calendar.getInstance().get(Calendar.MONTH) + 1,
     val currentYear: Int = Calendar.getInstance().get(Calendar.YEAR),
+    val selectedDate: Long? = null,
     val isLoading: Boolean = true
 )
 
@@ -323,6 +324,10 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
         }
         _state.update { newState }
         loadMonth(newState.currentYear, newState.currentMonth)
+    }
+    
+    fun selectDate(date: Long?) {
+        _state.update { it.copy(selectedDate = date) }
     }
 }
 
