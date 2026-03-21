@@ -40,8 +40,11 @@ class BaseFitApp : Application() {
     }
     
     private fun initSampleDataIfNeeded() {
-        // 只在首次启动时添加示例数据
-        if (prefs.getBoolean("sample_data_initialized", false)) {
+        // 检查数据库版本，如果版本不匹配则重新初始化
+        val dbVersion = prefs.getInt("db_version", 0)
+        val currentDbVersion = 2
+        
+        if (dbVersion >= currentDbVersion && prefs.getBoolean("sample_data_initialized", false)) {
             return
         }
         
@@ -166,7 +169,10 @@ class BaseFitApp : Application() {
             }
             
             // 标记已初始化
-            prefs.edit().putBoolean("sample_data_initialized", true).apply()
+            prefs.edit()
+                .putBoolean("sample_data_initialized", true)
+                .putInt("db_version", currentDbVersion)
+                .apply()
         }
     }
     
