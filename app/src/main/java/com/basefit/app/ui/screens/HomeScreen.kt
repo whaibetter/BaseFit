@@ -258,113 +258,206 @@ private fun TodayPlanCard(
         com.basefit.app.data.entity.ExerciseCategory.CARDIO -> CardioColor
     }
 
+    val categoryIcon = when (item.exercise.category) {
+        com.basefit.app.data.entity.ExerciseCategory.BODYWEIGHT -> Icons.Default.FitnessCenter
+        com.basefit.app.data.entity.ExerciseCategory.STRENGTH -> Icons.Default.FitnessCenter
+        com.basefit.app.data.entity.ExerciseCategory.CARDIO -> Icons.Default.DirectionsRun
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (item.isCompleted) 
-                Success.copy(alpha = 0.1f) 
+                Success.copy(alpha = 0.08f) 
             else 
                 Surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Category indicator
+            // 左侧彩色条
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(categoryColor.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = item.exercise.name.first().toString(),
-                    color = categoryColor,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Exercise info
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = item.exercise.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "目标: ${item.weekPlan.targetSets}组 × ${item.weekPlan.targetReps}次",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
-                )
-                if (item.isCompleted) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "已完成: ${item.completedSets}组 × ${item.completedReps}次",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Success
+                    .align(Alignment.CenterStart)
+                    .width(4.dp)
+                    .height(if (item.isCompleted) 80.dp else 100.dp)
+                    .clip(RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
+                    .background(
+                        if (item.isCompleted) Success else categoryColor
                     )
-                }
-            }
-
-            // Action buttons
-            if (item.isCompleted) {
-                Icon(
-                    Icons.Default.CheckCircle,
-                    contentDescription = "已完成",
-                    tint = Success,
-                    modifier = Modifier.size(32.dp)
-                )
-            } else {
-                Row {
-                    // Quick check-in
-                    IconButton(
-                        onClick = {
-                            onQuickCheckIn(
-                                item.exercise.id,
-                                item.weekPlan.targetSets,
-                                item.weekPlan.targetReps
-                            )
-                        },
+            )
+            
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Category icon with gradient background
+                    Box(
                         modifier = Modifier
-                            .size(40.dp)
-                            .background(Primary.copy(alpha = 0.1f), CircleShape)
+                            .size(52.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (item.isCompleted) 
+                                    Success.copy(alpha = 0.15f)
+                                else 
+                                    categoryColor.copy(alpha = 0.12f)
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            Icons.Default.Check,
-                            contentDescription = "快速打卡",
-                            tint = Primary,
-                            modifier = Modifier.size(20.dp)
+                            imageVector = if (item.isCompleted) Icons.Default.Check else categoryIcon,
+                            contentDescription = null,
+                            tint = if (item.isCompleted) Success else categoryColor,
+                            modifier = Modifier.size(28.dp)
                         )
                     }
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    // Exercise info
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = item.exercise.name,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = if (item.isCompleted) TextSecondary else TextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (item.isCompleted) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Success.copy(alpha = 0.15f)
+                                ) {
+                                    Text(
+                                        text = "已完成",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Success,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(6.dp))
+                        
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.TrackChanges,
+                                contentDescription = null,
+                                tint = TextSecondary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "${item.weekPlan.targetSets}组 × ${item.weekPlan.targetReps}次",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextSecondary
+                            )
+                        }
+                        
+                        if (item.isCompleted) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = Success,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "实际: ${item.completedSets}组 × ${item.completedReps}次",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Success,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Action buttons
+                if (!item.isCompleted) {
+                    Spacer(modifier = Modifier.height(14.dp))
                     
-                    Spacer(modifier = Modifier.width(8.dp))
-                    
-                    // Detail check-in
-                    IconButton(
-                        onClick = { onDetailCheckIn(item.exercise.id) },
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(TextSecondary.copy(alpha = 0.1f), CircleShape)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(
-                            Icons.Default.Edit,
-                            contentDescription = "详细打卡",
-                            tint = TextSecondary,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        // Quick check-in button
+                        Button(
+                            onClick = {
+                                onQuickCheckIn(
+                                    item.exercise.id,
+                                    item.weekPlan.targetSets,
+                                    item.weekPlan.targetReps
+                                )
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = categoryColor
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(
+                                defaultElevation = 2.dp
+                            )
+                        ) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                "快速打卡",
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        
+                        // Detail check-in button
+                        OutlinedButton(
+                            onClick = { onDetailCheckIn(item.exercise.id) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.5.dp, categoryColor.copy(alpha = 0.5f)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = categoryColor
+                            )
+                        ) {
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                "详细记录",
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
                 }
             }
