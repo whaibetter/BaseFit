@@ -106,61 +106,101 @@ fun HomeScreen(
                     CircularProgressIndicator()
                 }
             } else {
+                // Tab切换
+                var selectedTab by remember { mutableStateOf(0) }
+                val tabs = listOf("今日计划", "进行中的挑战")
+                val challengeCount = state.activeChallenges.size
+                
+                // 自定义Tab样式
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    tabs.forEachIndexed { index, title ->
+                        val isSelected = selectedTab == index
+                        val count = if (index == 0) state.todayPlans.size else challengeCount
+                        
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { selectedTab = index },
+                            label = { 
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        title,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                    )
+                                    if (count > 0) {
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = if (isSelected) Primary.copy(alpha = 0.3f) else TextHint.copy(alpha = 0.2f)
+                                        ) {
+                                            Text(
+                                                text = "$count",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = if (isSelected) Primary else TextSecondary,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Primary.copy(alpha = 0.15f),
+                                containerColor = Surface
+                            )
+                        )
+                    }
+                }
+                
+                // 内容区域
                 LazyColumn(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Today's Plan Section
-                    item {
-                        Text(
-                            text = "今日计划",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                    }
-                    
-                    if (state.todayPlans.isEmpty()) {
-                        item {
-                            EmptyPlanCard(onAddPlan = onNavigateToPlan)
-                        }
-                    } else {
-                        items(state.todayPlans, key = { "plan_${it.weekPlan.id}" }) { item ->
-                            TodayPlanCard(
-                                item = item,
-                                onQuickCheckIn = { exerciseId, sets, reps ->
-                                    viewModel.quickCheckIn(exerciseId, sets, reps)
-                                    Toast.makeText(context, "打卡成功!", Toast.LENGTH_SHORT).show()
-                                },
-                                onDetailCheckIn = { exerciseId ->
-                                    val today = getDayStart(System.currentTimeMillis())
-                                    onNavigateToCheckIn(exerciseId, today)
+                    when (selectedTab) {
+                        0 -> {
+                            // 今日计划
+                            if (state.todayPlans.isEmpty()) {
+                                item {
+                                    EmptyPlanCard(onAddPlan = onNavigateToPlan)
                                 }
-                            )
-                        }
-                    }
-                    
-                    // Active Challenges Section
-                    if (state.activeChallenges.isNotEmpty()) {
-                        item {
-                            Text(
-                                text = "进行中的挑战",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary,
-                                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-                            )
-                        }
-                        
-                        items(state.activeChallenges, key = { "challenge_${it.challenge.id}" }) { item ->
-                            ChallengeCheckInCard(
-                                item = item,
-                                onCheckIn = { exerciseId, sets, reps ->
-                                    viewModel.quickCheckIn(exerciseId, sets, reps)
-                                    Toast.makeText(context, "打卡成功! 挑战进度已更新", Toast.LENGTH_SHORT).show()
+                            } else {
+                                items(state.todayPlans, key = { "plan_${it.weekPlan.id}" }) { item ->
+                                    TodayPlanCard(
+                                        item = item,
+                                        onQuickCheckIn = { exerciseId, sets, reps ->
+                                            viewModel.quickCheckIn(exerciseId, sets, reps)
+                                            Toast.makeText(context, "打卡成功!", Toast.LENGTH_SHORT).show()
+                                        },
+                                        onDetailCheckIn = { exerciseId ->
+                                            val today = getDayStart(System.currentTimeMillis())
+                                            onNavigateToCheckIn(exerciseId, today)
+                                        }
+                                    )
                                 }
-                            )
+                            }
+                        }
+                        1 -> {
+                            // 挑战计划
+                            if (state.activeChallenges.isEmpty()) {
+                                item {
+                                    EmptyChallengeCard(onAddPlan = onNavigateToPlan)
+                                }
+                            } else {
+                                items(state.activeChallenges, key = { "challenge_${it.challenge.id}" }) { item ->
+                                    ChallengeCheckInCard(
+                                        item = item,
+                                        onCheckIn = { exerciseId, sets, reps ->
+                                            viewModel.quickCheckIn(exerciseId, sets, reps)
+                                            Toast.makeText(context, "打卡成功! 挑战进度已更新", Toast.LENGTH_SHORT).show()
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                     
@@ -538,6 +578,52 @@ private fun EmptyPlanCard(onAddPlan: () -> Unit) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("添加计划")
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyChallengeCard(onAddPlan: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Surface)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                Icons.Default.EmojiEvents,
+                contentDescription = null,
+                tint = TextHint,
+                modifier = Modifier.size(64.dp)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "暂无进行中的挑战",
+                style = MaterialTheme.typography.titleMedium,
+                color = TextSecondary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "创建一个挑战计划来激励自己",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextHint
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = onAddPlan,
+                colors = ButtonDefaults.buttonColors(containerColor = Primary)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("创建挑战")
             }
         }
     }
