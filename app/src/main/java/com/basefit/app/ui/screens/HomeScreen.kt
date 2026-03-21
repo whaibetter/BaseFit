@@ -36,7 +36,8 @@ import java.util.*
 fun HomeScreen(
     onNavigateToPlan: () -> Unit,
     onNavigateToCheckIn: (Long, Long) -> Unit,
-    viewModel: HomeViewModel = viewModel()
+    viewModel: HomeViewModel = viewModel(),
+    bottomBarPadding: PaddingValues = PaddingValues()
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
@@ -75,7 +76,8 @@ fun HomeScreen(
             FloatingActionButton(
                 onClick = onNavigateToPlan,
                 containerColor = Primary,
-                contentColor = Color.White
+                contentColor = Color.White,
+                modifier = Modifier.padding(bottom = bottomBarPadding.calculateBottomPadding())
             ) {
                 Icon(Icons.Default.Add, contentDescription = "添加计划")
             }
@@ -129,6 +131,10 @@ fun HomeScreen(
                                 onNavigateToCheckIn(exerciseId, today)
                             }
                         )
+                    }
+                    // 底部间距，避免被底部导航栏遮挡
+                    item {
+                        Spacer(modifier = Modifier.height(80.dp))
                     }
                 }
             }

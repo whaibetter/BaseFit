@@ -110,6 +110,9 @@ fun BaseFitMainScreen() {
             }
         }
     ) { padding ->
-        BaseFitNavGraph(navController = navController)
+        BaseFitNavGraph(
+            navController = navController,
+            bottomBarPadding = padding
+        )
     }
 }

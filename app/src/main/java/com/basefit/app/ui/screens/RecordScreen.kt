@@ -29,7 +29,8 @@ import java.util.*
 @Composable
 fun RecordScreen(
     onNavigateToCheckIn: (Long, Long) -> Unit,
-    viewModel: RecordViewModel = viewModel()
+    viewModel: RecordViewModel = viewModel(),
+    bottomBarPadding: PaddingValues = PaddingValues()
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -142,9 +143,9 @@ fun RecordScreen(
                 }
             }
 
-            // Bottom spacer
+            // Bottom spacer - 增加高度避免被底部导航栏遮挡
             item {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(80.dp))
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.basefit.app.ui.navigation
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -29,7 +30,8 @@ sealed class Screen(val route: String) {
 
 @Composable
 fun BaseFitNavGraph(
-    navController: NavHostController = rememberNavController()
+    navController: NavHostController = rememberNavController(),
+    bottomBarPadding: PaddingValues = PaddingValues()
 ) {
     NavHost(
         navController = navController,
@@ -40,7 +42,8 @@ fun BaseFitNavGraph(
                 onNavigateToPlan = { navController.navigate(Screen.Plan.route) },
                 onNavigateToCheckIn = { exerciseId, date ->
                     navController.navigate(Screen.CheckIn.createRoute(exerciseId, date))
-                }
+                },
+                bottomBarPadding = bottomBarPadding
             )
         }
         
@@ -56,12 +59,13 @@ fun BaseFitNavGraph(
             RecordScreen(
                 onNavigateToCheckIn = { exerciseId, date ->
                     navController.navigate(Screen.CheckIn.createRoute(exerciseId, date))
-                }
+                },
+                bottomBarPadding = bottomBarPadding
             )
         }
         
         composable(Screen.Stats.route) {
-            StatsScreen()
+            StatsScreen(bottomBarPadding = bottomBarPadding)
         }
         
         composable(Screen.Settings.route) {

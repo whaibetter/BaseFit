@@ -27,7 +27,8 @@ import com.basefit.app.viewmodel.StatsViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatsScreen(
-    viewModel: StatsViewModel = viewModel()
+    viewModel: StatsViewModel = viewModel(),
+    bottomBarPadding: PaddingValues = PaddingValues()
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -124,6 +125,11 @@ fun StatsScreen(
                     items(state.achievements, key = { it.exerciseId }) { achievement ->
                         AchievementCard(achievement)
                     }
+                }
+                
+                // 底部间距，避免被底部导航栏遮挡
+                item {
+                    Spacer(modifier = Modifier.height(80.dp))
                 }
             }
         }
