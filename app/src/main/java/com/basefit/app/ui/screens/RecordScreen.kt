@@ -33,14 +33,11 @@ fun RecordScreen(
     viewModel: RecordViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsState()
-    val dateFormat = SimpleDateFormat("yyyy年MM月", Locale.getDefault())
-    val monthNames = listOf("一月", "二月", "三月", "四月", "五月", "六月",
-        "七月", "八月", "九月", "十月", "十一月", "十二月")
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { 
+                title = {
                     Text(
                         "打卡记录",
                         fontWeight = FontWeight.SemiBold
@@ -53,165 +50,177 @@ fun RecordScreen(
             )
         }
     ) { padding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(Background)
+                .background(Background),
+            contentPadding = PaddingValues(vertical = 8.dp)
         ) {
             // Month selector
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { viewModel.previousMonth() }) {
-                    Icon(Icons.Default.ChevronLeft, "上个月")
-                }
-                Text(
-                    text = "${state.currentYear}年${state.currentMonth}月",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                IconButton(onClick = { viewModel.nextMonth() }) {
-                    Icon(Icons.Default.ChevronRight, "下个月")
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = { viewModel.previousMonth() }) {
+                        Icon(Icons.Default.ChevronLeft, "上个月")
+                    }
+                    Text(
+                        text = "${state.currentYear}年${state.currentMonth}月",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    IconButton(onClick = { viewModel.nextMonth() }) {
+                        Icon(Icons.Default.ChevronRight, "下个月")
+                    }
                 }
             }
 
             // Calendar
-            CalendarGrid(
-                year = state.currentYear,
-                month = state.currentMonth,
-                checkInData = state.calendarData,
-                selectedDate = state.selectedDate,
-                onDayClick = { day ->
-                    val calendar = Calendar.getInstance()
-                    calendar.set(state.currentYear, state.currentMonth - 1, day, 0, 0, 0)
-                    calendar.set(Calendar.MILLISECOND, 0)
-                    val dayTimestamp = calendar.timeInMillis
-                    viewModel.selectDate(dayTimestamp)
-                }
-            )
-            
-            // Selected date records
+            item {
+                CalendarGrid(
+                    year = state.currentYear,
+                    month = state.currentMonth,
+                    checkInData = state.calendarData,
+                    selectedDate = state.selectedDate,
+                    onDayClick = { day ->
+                        val calendar = Calendar.getInstance()
+                        calendar.set(state.currentYear, state.currentMonth - 1, day, 0, 0, 0)
+                        calendar.set(Calendar.MILLISECOND, 0)
+                        val dayTimestamp = calendar.timeInMillis
+                        viewModel.selectDate(dayTimestamp)
+                    }
+                )
+            }
+
+            // Selected date records or monthly records
             if (state.selectedDate != null) {
-                val selectedDateFormat = SimpleDateFormat("MM月dd日 EEEE", Locale.getDefault())
-                val selectedDateText = selectedDateFormat.format(Date(state.selectedDate!!))
-                
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Primary.copy(alpha = 0.1f))
-                ) {
-                    Row(
+                // Selected date header
+                item {
+                    val selectedDateFormat = SimpleDateFormat("MM月dd日 EEEE", Locale.getDefault())
+                    val selectedDateText = selectedDateFormat.format(Date(state.selectedDate!!))
+
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Primary.copy(alpha = 0.1f))
                     ) {
-                        Column {
-                            Text(
-                                text = "选中日期",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = TextSecondary
-                            )
-                            Text(
-                                text = selectedDateText,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Primary
-                            )
-                        }
-                        TextButton(onClick = { viewModel.clearSelectedDate() }) {
-                            Text("清除选择")
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "选中日期",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextSecondary
+                                )
+                                Text(
+                                    text = selectedDateText,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Primary
+                                )
+                            }
+                            TextButton(onClick = { viewModel.clearSelectedDate() }) {
+                                Text("清除选择")
+                            }
                         }
                     }
                 }
-                
+
+                // Selected date check-ins
                 if (state.selectedDateCheckIns.isNotEmpty()) {
-                    LazyColumn(
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(state.selectedDateCheckIns, key = { it.checkIn.id }) { item ->
-                            CheckInRecordCard(
-                                item = item,
-                                onClick = { }
-                            )
-                        }
+                    items(state.selectedDateCheckIns, key = { "selected_${it.checkIn.id}" }) { item ->
+                        CheckInRecordCard(
+                            item = item,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                        )
                     }
                 } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "该日期暂无打卡记录",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextHint
-                        )
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "该日期暂无打卡记录",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextHint
+                            )
+                        }
                     }
                 }
             } else {
-                // Recent records (shown when no date is selected)
-                Text(
-                    text = "本月记录",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
-                )
+                // Monthly records header
+                item {
+                    Text(
+                        text = "本月记录",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
+                    )
+                }
 
                 if (state.isLoading) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
                     }
                 } else if (state.checkIns.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                Icons.Default.History,
-                                contentDescription = null,
-                                tint = TextHint,
-                                modifier = Modifier.size(64.dp)
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = "本月暂无记录",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary
-                            )
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Default.History,
+                                    contentDescription = null,
+                                    tint = TextHint,
+                                    modifier = Modifier.size(64.dp)
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "本月暂无记录",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextSecondary
+                                )
+                            }
                         }
                     }
                 } else {
-                    LazyColumn(
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(state.checkIns, key = { it.checkIn.id }) { item ->
-                            CheckInRecordCard(
-                                item = item,
-                                onClick = { }
-                            )
-                        }
+                    items(state.checkIns, key = { "month_${it.checkIn.id}" }) { item ->
+                        CheckInRecordCard(
+                            item = item,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                        )
                     }
                 }
+            }
+
+            // Bottom spacer
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -227,7 +236,7 @@ private fun CalendarGrid(
 ) {
     val calendar = Calendar.getInstance()
     calendar.set(year, month - 1, 1)
-    
+
     val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
     calendar.set(Calendar.DAY_OF_MONTH, 1)
     val firstDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
@@ -269,7 +278,7 @@ private fun CalendarGrid(
             Row(modifier = Modifier.fillMaxWidth()) {
                 for (rowCell in 0 until 7) {
                     val index = cellIndex + rowCell
-                    
+
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -279,18 +288,18 @@ private fun CalendarGrid(
                     ) {
                         if (index >= offset && dayCounter <= daysInMonth) {
                             val currentDay = dayCounter
-                            
+
                             // Get timestamp for this day
                             calendar.set(year, month - 1, currentDay, 0, 0, 0)
                             calendar.set(Calendar.MILLISECOND, 0)
                             val dayTimestamp = calendar.timeInMillis
                             val checkInCount = checkInData[dayTimestamp] ?: 0
-                            
+
                             val today = Calendar.getInstance()
                             val isToday = today.get(Calendar.YEAR) == year &&
                                     today.get(Calendar.MONTH) == month - 1 &&
                                     today.get(Calendar.DAY_OF_MONTH) == currentDay
-                            
+
                             val isSelected = selectedDate == dayTimestamp
 
                             Box(
@@ -320,7 +329,7 @@ private fun CalendarGrid(
                                     fontWeight = if (isToday || checkInCount > 0 || isSelected) FontWeight.SemiBold else FontWeight.Normal
                                 )
                             }
-                            
+
                             dayCounter++
                         }
                     }
@@ -333,7 +342,7 @@ private fun CalendarGrid(
 @Composable
 private fun CheckInRecordCard(
     item: CheckInWithExercise,
-    onClick: () -> Unit
+    modifier: Modifier = Modifier
 ) {
     val categoryColor = when (item.exercise.category) {
         ExerciseCategory.BODYWEIGHT -> BodyweightColor
@@ -344,7 +353,7 @@ private fun CheckInRecordCard(
     val dateFormat = SimpleDateFormat("MM/dd HH:mm", Locale.getDefault())
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Surface)
     ) {
