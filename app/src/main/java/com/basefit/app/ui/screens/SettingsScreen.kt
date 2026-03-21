@@ -42,6 +42,7 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     var showExerciseList by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<Exercise?>(null) }
+    var showAboutDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -111,7 +112,7 @@ fun SettingsScreen(
                         icon = Icons.Default.Info,
                         title = "关于",
                         subtitle = "BaseFit v1.0",
-                        onClick = { }
+                        onClick = { showAboutDialog = true }
                     )
                 }
             }
@@ -183,6 +184,77 @@ fun SettingsScreen(
                 dismissButton = {
                     TextButton(onClick = { showDeleteDialog = null }) {
                         Text("取消")
+                    }
+                }
+            )
+        }
+
+        // About Dialog
+        if (showAboutDialog) {
+            AlertDialog(
+                onDismissRequest = { showAboutDialog = false },
+                title = { 
+                    Text(
+                        "BaseFit",
+                        fontWeight = FontWeight.Bold
+                    ) 
+                },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            Icons.Default.FitnessCenter,
+                            contentDescription = null,
+                            tint = Primary,
+                            modifier = Modifier.size(64.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "版本 1.0.0",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = TextSecondary
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "一款简洁的健身打卡应用",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "记录你的每一次训练，见证你的成长",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextHint
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Divider(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Divider
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "功能特点：",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text("• 自定义动作管理", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                            Text("• 灵活的周计划设置", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                            Text("• 挑战计划激励", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                            Text("• 数据统计与导出", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showAboutDialog = false }) {
+                        Text("确定")
                     }
                 }
             )

@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -84,60 +85,131 @@ fun RecordScreen(
                 year = state.currentYear,
                 month = state.currentMonth,
                 checkInData = state.calendarData,
+                selectedDate = state.selectedDate,
                 onDayClick = { day ->
-                    // Could navigate to day detail
+                    val calendar = Calendar.getInstance()
+                    calendar.set(state.currentYear, state.currentMonth - 1, day, 0, 0, 0)
+                    calendar.set(Calendar.MILLISECOND, 0)
+                    val dayTimestamp = calendar.timeInMillis
+                    viewModel.selectDate(dayTimestamp)
                 }
             )
-
-            // Recent records
-            Text(
-                text = "本月记录",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
-            )
-
-            if (state.isLoading) {
-                Box(
+            
+            // Selected date records
+            if (state.selectedDate != null) {
+                val selectedDateFormat = SimpleDateFormat("MM月dd日 EEEE", Locale.getDefault())
+                val selectedDateText = selectedDateFormat.format(Date(state.selectedDate!!))
+                
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Primary.copy(alpha = 0.1f))
                 ) {
-                    CircularProgressIndicator()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "选中日期",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondary
+                            )
+                            Text(
+                                text = selectedDateText,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Primary
+                            )
+                        }
+                        TextButton(onClick = { viewModel.clearSelectedDate() }) {
+                            Text("清除选择")
+                        }
+                    }
                 }
-            } else if (state.checkIns.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Default.History,
-                            contentDescription = null,
-                            tint = TextHint,
-                            modifier = Modifier.size(64.dp)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
+                
+                if (state.selectedDateCheckIns.isNotEmpty()) {
+                    LazyColumn(
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(state.selectedDateCheckIns, key = { it.checkIn.id }) { item ->
+                            CheckInRecordCard(
+                                item = item,
+                                onClick = { }
+                            )
+                        }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Text(
-                            text = "本月暂无记录",
+                            text = "该日期暂无打卡记录",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary
+                            color = TextHint
                         )
                     }
                 }
             } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(state.checkIns, key = { it.checkIn.id }) { item ->
-                        CheckInRecordCard(
-                            item = item,
-                            onClick = { }
-                        )
+                // Recent records (shown when no date is selected)
+                Text(
+                    text = "本月记录",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
+                )
+
+                if (state.isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                } else if (state.checkIns.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Default.History,
+                                contentDescription = null,
+                                tint = TextHint,
+                                modifier = Modifier.size(64.dp)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "本月暂无记录",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(state.checkIns, key = { it.checkIn.id }) { item ->
+                            CheckInRecordCard(
+                                item = item,
+                                onClick = { }
+                            )
+                        }
                     }
                 }
             }
@@ -150,6 +222,7 @@ private fun CalendarGrid(
     year: Int,
     month: Int,
     checkInData: Map<Long, Int>,
+    selectedDate: Long?,
     onDayClick: (Int) -> Unit
 ) {
     val calendar = Calendar.getInstance()
@@ -217,6 +290,8 @@ private fun CalendarGrid(
                             val isToday = today.get(Calendar.YEAR) == year &&
                                     today.get(Calendar.MONTH) == month - 1 &&
                                     today.get(Calendar.DAY_OF_MONTH) == currentDay
+                            
+                            val isSelected = selectedDate == dayTimestamp
 
                             Box(
                                 modifier = Modifier
@@ -224,6 +299,7 @@ private fun CalendarGrid(
                                     .clip(CircleShape)
                                     .background(
                                         when {
+                                            isSelected -> Primary
                                             checkInCount > 0 -> Success.copy(alpha = 0.2f)
                                             isToday -> Primary.copy(alpha = 0.1f)
                                             else -> Surface
@@ -236,11 +312,12 @@ private fun CalendarGrid(
                                     text = "$currentDay",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = when {
+                                        isSelected -> Color.White
                                         checkInCount > 0 -> Success
                                         isToday -> Primary
                                         else -> TextPrimary
                                     },
-                                    fontWeight = if (isToday || checkInCount > 0) FontWeight.SemiBold else FontWeight.Normal
+                                    fontWeight = if (isToday || checkInCount > 0 || isSelected) FontWeight.SemiBold else FontWeight.Normal
                                 )
                             }
                             
