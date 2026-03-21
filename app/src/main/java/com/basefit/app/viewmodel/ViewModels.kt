@@ -44,8 +44,6 @@ data class RecordState(
     val calendarData: Map<Long, Int> = emptyMap(),
     val currentMonth: Int = Calendar.getInstance().get(Calendar.MONTH) + 1,
     val currentYear: Int = Calendar.getInstance().get(Calendar.YEAR),
-    val selectedDate: Long? = null,
-    val selectedDateCheckIns: List<CheckInWithExercise> = emptyList(),
     val isLoading: Boolean = true
 )
 
@@ -325,40 +323,6 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
         }
         _state.update { newState }
         loadMonth(newState.currentYear, newState.currentMonth)
-    }
-    
-    fun selectDate(date: Long) {
-        viewModelScope.launch {
-            val exercises = repository.getAllActiveExercises().first()
-            val checkIns = repository.getAllCheckIns().first()
-                .filter { getDayStart(it.date) == date }
-            
-            val checkInsWithExercise = checkIns.mapNotNull { checkIn ->
-                val exercise = exercises.find { it.id == checkIn.exerciseId }
-                if (exercise != null) CheckInWithExercise(checkIn, exercise) else null
-            }.sortedByDescending { it.checkIn.date }
-            
-            _state.update { 
-                it.copy(
-                    selectedDate = date,
-                    selectedDateCheckIns = checkInsWithExercise
-                )
-            }
-        }
-    }
-    
-    fun clearSelectedDate() {
-        _state.update { it.copy(selectedDate = null, selectedDateCheckIns = emptyList()) }
-    }
-    
-    private fun getDayStart(timestamp: Long): Long {
-        val calendar = Calendar.getInstance()
-        calendar.timeInMillis = timestamp
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        return calendar.timeInMillis
     }
 }
 
