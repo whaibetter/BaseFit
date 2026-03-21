@@ -12,7 +12,7 @@ import com.basefit.app.data.entity.*
         ChallengePlan::class,
         CheckIn::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

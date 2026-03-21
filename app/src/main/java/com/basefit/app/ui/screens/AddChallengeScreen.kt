@@ -37,6 +37,7 @@ fun AddChallengeScreen(
     var selectedExercise by remember { mutableStateOf<Exercise?>(null) }
     var showExercisePicker by remember { mutableStateOf(false) }
     var challengeName by remember { mutableStateOf("") }
+    var targetTotalReps by remember { mutableStateOf("") }
     var targetDays by remember { mutableStateOf("") }
     var targetSets by remember { mutableStateOf("") }
     var targetReps by remember { mutableStateOf("") }
@@ -46,6 +47,7 @@ fun AddChallengeScreen(
     val dateFormat = SimpleDateFormat("yyyy年MM月dd日", Locale.getDefault())
 
     val presetDays = listOf(7, 14, 21, 30, 60, 90)
+    val presetReps = listOf(100, 500, 1000, 2000, 5000)
 
     Scaffold(
         topBar = {
@@ -162,6 +164,48 @@ fun AddChallengeScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Total target reps
+            Text(
+                text = "总目标次数",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                presetReps.forEach { reps ->
+                    val isSelected = targetTotalReps == reps.toString()
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { targetTotalReps = reps.toString() },
+                        label = { Text("${reps}次") },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = targetTotalReps,
+                onValueChange = { targetTotalReps = it.filter { c -> c.isDigit() } },
+                label = { Text("自定义总目标次数") },
+                placeholder = { Text("总共要完成多少次？") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                leadingIcon = {
+                    Icon(Icons.Default.Flag, contentDescription = null)
+                }
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             // Challenge duration
             Text(
                 text = "挑战天数",
@@ -247,7 +291,24 @@ fun AddChallengeScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Target input
+            // Daily suggestion (optional)
+            Text(
+                text = "每天建议 (可选)",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            Text(
+                text = "用于提醒每次打卡的参考量",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -255,7 +316,7 @@ fun AddChallengeScreen(
                 OutlinedTextField(
                     value = targetSets,
                     onValueChange = { targetSets = it.filter { c -> c.isDigit() } },
-                    label = { Text("每天组数") },
+                    label = { Text("建议组数") },
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true
@@ -281,12 +342,10 @@ fun AddChallengeScreen(
                             Toast.makeText(context, "请选择动作", Toast.LENGTH_SHORT).show()
                         challengeName.isBlank() -> 
                             Toast.makeText(context, "请输入挑战名称", Toast.LENGTH_SHORT).show()
+                        targetTotalReps.isBlank() -> 
+                            Toast.makeText(context, "请输入总目标次数", Toast.LENGTH_SHORT).show()
                         targetDays.isBlank() -> 
                             Toast.makeText(context, "请输入挑战天数", Toast.LENGTH_SHORT).show()
-                        targetSets.isBlank() -> 
-                            Toast.makeText(context, "请输入组数", Toast.LENGTH_SHORT).show()
-                        targetReps.isBlank() -> 
-                            Toast.makeText(context, "请输入次数", Toast.LENGTH_SHORT).show()
                         else -> {
                             val calendar = Calendar.getInstance()
                             calendar.timeInMillis = startDate
@@ -303,8 +362,9 @@ fun AddChallengeScreen(
                                 name = challengeName.trim(),
                                 startDate = start,
                                 endDate = end,
-                                targetSets = targetSets.toInt(),
-                                targetReps = targetReps.toInt()
+                                targetTotalReps = targetTotalReps.toInt(),
+                                targetSets = targetSets.toIntOrNull() ?: 1,
+                                targetReps = targetReps.toIntOrNull() ?: 10
                             )
                             Toast.makeText(context, "添加成功", Toast.LENGTH_SHORT).show()
                             onNavigateBack()

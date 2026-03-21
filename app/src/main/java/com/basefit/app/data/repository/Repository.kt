@@ -58,6 +58,12 @@ class FitRepository(context: Context) {
 
     suspend fun deleteChallengePlan(plan: ChallengePlan) = challengePlanDao.delete(plan)
 
+    // Get challenge progress - returns total completed reps for an exercise in a date range
+    suspend fun getChallengeProgress(exerciseId: Long, startDate: Long, endDate: Long): Int {
+        val checkIns = checkInDao.getByExerciseAndDateRange(exerciseId, startDate, endDate)
+        return checkIns.sumOf { it.completedSets * it.completedReps }
+    }
+
     // CheckIn operations
     fun getCheckInsByDate(date: Long): Flow<List<CheckIn>> = checkInDao.getByDate(date)
 

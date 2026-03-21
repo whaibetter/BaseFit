@@ -122,6 +122,7 @@ class BaseFitApp : Application() {
                     name = "30天平板支撑挑战",
                     startDate = startDate,
                     endDate = endDate,
+                    targetTotalReps = 90, // 总目标90次
                     targetSets = 3,
                     targetReps = 1
                 )

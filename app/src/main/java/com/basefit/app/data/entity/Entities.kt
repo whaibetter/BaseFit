@@ -43,8 +43,9 @@ data class ChallengePlan(
     val name: String,
     val startDate: Long,
     val endDate: Long,
-    val targetSets: Int,
-    val targetReps: Int,
+    val targetTotalReps: Int, // 总目标次数（比如1000次）
+    val targetSets: Int,      // 每天建议组数
+    val targetReps: Int,      // 每组建议次数
     val isActive: Boolean = true,
     val createdAt: Long = System.currentTimeMillis()
 )

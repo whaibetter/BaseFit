@@ -251,12 +251,18 @@ private fun ChallengeCard(
 ) {
     val dateFormat = SimpleDateFormat("MM/dd", Locale.getDefault())
     val now = System.currentTimeMillis()
-    val isActive = now in item.challenge.startDate..item.challenge.endDate
-    val isPast = now > item.challenge.endDate
+    val challenge = item.challenge
+    val isActive = now in challenge.startDate..challenge.endDate
+    val isPast = now > challenge.endDate
 
-    val totalDays = ((item.challenge.endDate - item.challenge.startDate) / (24 * 60 * 60 * 1000) + 1).toInt()
-    val passedDays = ((now - item.challenge.startDate) / (24 * 60 * 60 * 1000) + 1).coerceIn(0L, totalDays.toLong()).toInt()
-    val progress = if (totalDays > 0) passedDays.toFloat() / totalDays else 0f
+    // 使用次数进度
+    val targetReps = challenge.targetTotalReps
+    val completedReps = item.completedReps
+    val progress = if (targetReps > 0) completedReps.toFloat() / targetReps else 0f
+    val isCompleted = completedReps >= targetReps
+
+    // 计算天数
+    val totalDays = ((challenge.endDate - challenge.startDate) / (24 * 60 * 60 * 1000) + 1).toInt()
 
     val categoryColor = when (item.exercise.category) {
         com.basefit.app.data.entity.ExerciseCategory.BODYWEIGHT -> BodyweightColor
@@ -265,42 +271,75 @@ private fun ChallengeCard(
     }
 
     val statusColor = when {
+        isCompleted -> Success
         isPast -> TextSecondary
-        isActive -> Success
-        else -> Warning
+        isActive -> Warning
+        else -> TextHint
+    }
+
+    val statusText = when {
+        isCompleted -> "已完成"
+        isPast -> "已结束"
+        isActive -> "进行中"
+        else -> "未开始"
     }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isPast) Surface.copy(alpha = 0.5f) else Surface
-        )
+            containerColor = if (isCompleted) 
+                Success.copy(alpha = 0.08f) 
+            else if (isPast) 
+                Surface.copy(alpha = 0.5f) 
+            else 
+                Surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
+            // Header row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    // Category icon
                     Box(
                         modifier = Modifier
-                            .width(4.dp)
-                            .height(40.dp)
-                            .background(categoryColor, RoundedCornerShape(2.dp))
-                    )
+                            .size(44.dp)
+                            .background(
+                                categoryColor.copy(alpha = 0.12f),
+                                RoundedCornerShape(10.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.EmojiEvents,
+                            contentDescription = null,
+                            tint = if (isCompleted) Success else categoryColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    
                     Spacer(modifier = Modifier.width(12.dp))
-                    Column {
+                    
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = item.challenge.name,
+                            text = challenge.name,
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (isPast) TextSecondary else TextPrimary
+                            fontWeight = FontWeight.Bold,
+                            color = if (isPast && !isCompleted) TextSecondary else TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = item.exercise.name,
@@ -310,61 +349,119 @@ private fun ChallengeCard(
                     }
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // Status badge
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = statusColor.copy(alpha = 0.15f)
+                ) {
                     Text(
-                        text = when {
-                            isPast -> "已结束"
-                            isActive -> "进行中"
-                            else -> "未开始"
-                        },
+                        text = statusText,
                         style = MaterialTheme.typography.labelMedium,
-                        color = statusColor
+                        color = statusColor,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "删除",
-                            tint = if (isPast) TextHint else Error
+                }
+            }
+
+            // Progress section (show for active or completed challenges)
+            if (isActive || isCompleted) {
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Progress numbers
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    Column {
+                        Text(
+                            text = "已完成",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
+                        Row(
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Text(
+                                text = "$completedReps",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isCompleted) Success else Primary
+                            )
+                            Text(
+                                text = " / $targetReps 次",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = TextSecondary,
+                                modifier = Modifier.padding(bottom = 6.dp)
+                            )
+                        }
+                    }
+                    
+                    // Percentage
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = (if (isCompleted) Success else Primary).copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = "${(progress * 100).toInt()}%",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isCompleted) Success else Primary,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                         )
                     }
                 }
-            }
-
-            if (isActive) {
+                
                 Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "${item.challenge.targetSets}组 × ${item.challenge.targetReps}次/天",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
-                    )
-                    Text(
-                        text = "$passedDays/$totalDays 天",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Primary
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Progress bar
                 LinearProgressIndicator(
-                    progress = progress,
+                    progress = progress.coerceAtMost(1f),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(6.dp),
-                    color = Primary,
-                    trackColor = Divider
+                        .height(8.dp),
+                    color = if (isCompleted) Success else Primary,
+                    trackColor = Divider,
                 )
+                
+                // Daily suggestion
+                if (challenge.targetSets > 0 && challenge.targetReps > 0) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "建议: ${challenge.targetSets}组 x ${challenge.targetReps}次/天",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextHint
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "${dateFormat.format(Date(item.challenge.startDate))} - ${dateFormat.format(Date(item.challenge.endDate))}",
-                style = MaterialTheme.typography.bodySmall,
-                color = TextHint
-            )
+            // Date range
+            Spacer(modifier = Modifier.height(12.dp))
+            val totalDaysVal = totalDays
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${dateFormat.format(Date(challenge.startDate))} - ${dateFormat.format(Date(challenge.endDate))} (${totalDaysVal}天)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextHint
+                )
+                
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "删除",
+                        tint = if (isPast && !isCompleted) TextHint else Error,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
         }
     }
 }

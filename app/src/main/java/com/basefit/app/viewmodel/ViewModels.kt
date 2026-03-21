@@ -36,7 +36,8 @@ data class WeekPlanWithExercise(
 
 data class ChallengePlanWithExercise(
     val challenge: ChallengePlan,
-    val exercise: Exercise
+    val exercise: Exercise,
+    val completedReps: Int = 0 // 已完成次数
 )
 
 data class RecordState(
@@ -186,7 +187,13 @@ class PlanViewModel(application: Application) : AndroidViewModel(application) {
             val challengesWithExercise = challenges.mapNotNull { challenge ->
                 val exercise = exercises.find { it.id == challenge.exerciseId }
                 if (exercise != null) {
-                    ChallengePlanWithExercise(challenge, exercise)
+                    // 获取该动作在挑战期间内的已完成次数
+                    val completedReps = repository.getChallengeProgress(
+                        exerciseId = challenge.exerciseId,
+                        startDate = challenge.startDate,
+                        endDate = challenge.endDate + 24 * 60 * 60 * 1000 - 1 // 包含结束日期当天
+                    )
+                    ChallengePlanWithExercise(challenge, exercise, completedReps)
                 } else null
             }
 
@@ -227,6 +234,7 @@ class PlanViewModel(application: Application) : AndroidViewModel(application) {
         name: String,
         startDate: Long,
         endDate: Long,
+        targetTotalReps: Int,
         targetSets: Int,
         targetReps: Int
     ) {
@@ -237,6 +245,7 @@ class PlanViewModel(application: Application) : AndroidViewModel(application) {
                     name = name,
                     startDate = startDate,
                     endDate = endDate,
+                    targetTotalReps = targetTotalReps,
                     targetSets = targetSets,
                     targetReps = targetReps
                 )
