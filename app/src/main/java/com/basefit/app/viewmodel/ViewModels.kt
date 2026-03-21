@@ -12,6 +12,7 @@ import java.util.*
 
 data class HomeState(
     val todayPlans: List<TodayPlanItem> = emptyList(),
+    val activeChallenges: List<ChallengePlanWithExercise> = emptyList(),
     val completedCount: Int = 0,
     val totalCount: Int = 0,
     val isLoading: Boolean = true
@@ -75,9 +76,30 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
             val plans = repository.getTodayPlans()
+            
+            // 加载进行中的挑战
+            val challenges = repository.getAllActiveChallenges().first()
+            val exercises = repository.getAllActiveExercises().first()
+            val now = System.currentTimeMillis()
+            
+            val activeChallenges = challenges
+                .filter { it.isActive && now in it.startDate..it.endDate }
+                .mapNotNull { challenge ->
+                    val exercise = exercises.find { it.id == challenge.exerciseId }
+                    if (exercise != null) {
+                        val completedReps = repository.getChallengeProgress(
+                            exerciseId = challenge.exerciseId,
+                            startDate = challenge.startDate,
+                            endDate = challenge.endDate + 24 * 60 * 60 * 1000 - 1
+                        )
+                        ChallengePlanWithExercise(challenge, exercise, completedReps)
+                    } else null
+                }
+            
             _state.update { 
                 it.copy(
                     todayPlans = plans,
+                    activeChallenges = activeChallenges,
                     completedCount = plans.count { p -> p.isCompleted },
                     totalCount = plans.size,
                     isLoading = false

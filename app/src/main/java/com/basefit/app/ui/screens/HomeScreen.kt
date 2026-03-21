@@ -26,7 +26,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.basefit.app.data.repository.TodayPlanItem
+import com.basefit.app.data.entity.ExerciseCategory
 import com.basefit.app.ui.theme.*
+import com.basefit.app.viewmodel.ChallengePlanWithExercise
 import com.basefit.app.viewmodel.HomeViewModel
 import java.text.SimpleDateFormat
 import java.util.*
@@ -96,15 +98,6 @@ fun HomeScreen(
                 onAddPlan = onNavigateToPlan
             )
 
-            // Today's Plan
-            Text(
-                text = "今日计划",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)
-            )
-
             if (state.isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -112,27 +105,66 @@ fun HomeScreen(
                 ) {
                     CircularProgressIndicator()
                 }
-            } else if (state.todayPlans.isEmpty()) {
-                EmptyPlanCard(onAddPlan = onNavigateToPlan)
             } else {
                 LazyColumn(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(state.todayPlans, key = { it.weekPlan.id }) { item ->
-                        TodayPlanCard(
-                            item = item,
-                            onQuickCheckIn = { exerciseId, sets, reps ->
-                                viewModel.quickCheckIn(exerciseId, sets, reps)
-                                Toast.makeText(context, "打卡成功!", Toast.LENGTH_SHORT).show()
-                            },
-                            onDetailCheckIn = { exerciseId ->
-                                val today = getDayStart(System.currentTimeMillis())
-                                onNavigateToCheckIn(exerciseId, today)
-                            }
+                    // Today's Plan Section
+                    item {
+                        Text(
+                            text = "今日计划",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary,
+                            modifier = Modifier.padding(vertical = 8.dp)
                         )
                     }
-                    // 底部间距，避免被底部导航栏遮挡
+                    
+                    if (state.todayPlans.isEmpty()) {
+                        item {
+                            EmptyPlanCard(onAddPlan = onNavigateToPlan)
+                        }
+                    } else {
+                        items(state.todayPlans, key = { "plan_${it.weekPlan.id}" }) { item ->
+                            TodayPlanCard(
+                                item = item,
+                                onQuickCheckIn = { exerciseId, sets, reps ->
+                                    viewModel.quickCheckIn(exerciseId, sets, reps)
+                                    Toast.makeText(context, "打卡成功!", Toast.LENGTH_SHORT).show()
+                                },
+                                onDetailCheckIn = { exerciseId ->
+                                    val today = getDayStart(System.currentTimeMillis())
+                                    onNavigateToCheckIn(exerciseId, today)
+                                }
+                            )
+                        }
+                    }
+                    
+                    // Active Challenges Section
+                    if (state.activeChallenges.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "进行中的挑战",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary,
+                                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                            )
+                        }
+                        
+                        items(state.activeChallenges, key = { "challenge_${it.challenge.id}" }) { item ->
+                            ChallengeCheckInCard(
+                                item = item,
+                                onCheckIn = { exerciseId, sets, reps ->
+                                    viewModel.quickCheckIn(exerciseId, sets, reps)
+                                    Toast.makeText(context, "打卡成功! 挑战进度已更新", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
+                    }
+                    
+                    // Bottom spacer
                     item {
                         Spacer(modifier = Modifier.height(80.dp))
                     }
@@ -519,4 +551,192 @@ private fun getDayStart(timestamp: Long): Long {
     calendar.set(Calendar.SECOND, 0)
     calendar.set(Calendar.MILLISECOND, 0)
     return calendar.timeInMillis
+}
+
+@Composable
+private fun ChallengeCheckInCard(
+    item: ChallengePlanWithExercise,
+    onCheckIn: (Long, Int, Int) -> Unit
+) {
+    val challenge = item.challenge
+    val targetReps = challenge.targetTotalReps
+    val completedReps = item.completedReps
+    val progress = if (targetReps > 0) completedReps.toFloat() / targetReps else 0f
+    val isCompleted = completedReps >= targetReps
+    
+    var showInputDialog by remember { mutableStateOf(false) }
+    var inputSets by remember { mutableStateOf(challenge.targetSets.toString()) }
+    var inputReps by remember { mutableStateOf(challenge.targetReps.toString()) }
+
+    val categoryColor = when (item.exercise.category) {
+        ExerciseCategory.BODYWEIGHT -> BodyweightColor
+        ExerciseCategory.STRENGTH -> StrengthColor
+        ExerciseCategory.CARDIO -> CardioColor
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isCompleted) Success.copy(alpha = 0.08f) else Surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(
+                            (if (isCompleted) Success else Warning).copy(alpha = 0.12f),
+                            RoundedCornerShape(10.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.EmojiEvents,
+                        contentDescription = null,
+                        tint = if (isCompleted) Success else Warning,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = challenge.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isCompleted) TextSecondary else TextPrimary
+                    )
+                    Text(
+                        text = item.exercise.name,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                }
+                
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = (if (isCompleted) Success else Warning).copy(alpha = 0.15f)
+                ) {
+                    Text(
+                        text = "${(progress * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (isCompleted) Success else Warning,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Progress
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = "$completedReps",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isCompleted) Success else Primary
+                    )
+                    Text(
+                        text = " / $targetReps 次",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            LinearProgressIndicator(
+                progress = progress.coerceAtMost(1f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp),
+                color = if (isCompleted) Success else Primary,
+                trackColor = Divider
+            )
+            
+            // Check-in button
+            if (!isCompleted) {
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Button(
+                    onClick = { showInputDialog = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = categoryColor)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("打卡记录", fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+    }
+    
+    // Input dialog
+    if (showInputDialog) {
+        AlertDialog(
+            onDismissRequest = { showInputDialog = false },
+            title = { Text("打卡记录 - ${item.exercise.name}") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = inputSets,
+                        onValueChange = { inputSets = it.filter { c -> c.isDigit() } },
+                        label = { Text("组数") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = inputReps,
+                        onValueChange = { inputReps = it.filter { c -> c.isDigit() } },
+                        label = { Text("每组次数") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val sets = inputSets.toIntOrNull() ?: 0
+                        val reps = inputReps.toIntOrNull() ?: 0
+                        if (sets > 0 && reps > 0) {
+                            onCheckIn(item.exercise.id, sets, reps)
+                            showInputDialog = false
+                        }
+                    }
+                ) {
+                    Text("确定", color = Primary)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showInputDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
 }
