@@ -152,3 +152,42 @@ interface CheckInDao {
     """)
     suspend fun getTotalRepsInRange(exerciseId: Long, startDate: Long, endDate: Long): Int?
 }
+
+@Dao
+interface ExerciseMediaDao {
+    @Query("SELECT * FROM exercise_media WHERE exerciseId = :exerciseId ORDER BY orderIndex ASC, createdAt ASC")
+    fun getByExercise(exerciseId: Long): Flow<List<ExerciseMedia>>
+
+    @Query("SELECT * FROM exercise_media WHERE exerciseId = :exerciseId AND type = :type ORDER BY orderIndex ASC")
+    fun getByExerciseAndType(exerciseId: Long, type: MediaType): Flow<List<ExerciseMedia>>
+
+    @Query("SELECT * FROM exercise_media WHERE id = :id")
+    suspend fun getById(id: Long): ExerciseMedia?
+
+    @Query("SELECT * FROM exercise_media WHERE exerciseId = :exerciseId ORDER BY orderIndex ASC LIMIT 1")
+    suspend fun getFirstMedia(exerciseId: Long): ExerciseMedia?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(media: ExerciseMedia): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(media: List<ExerciseMedia>)
+
+    @Update
+    suspend fun update(media: ExerciseMedia)
+
+    @Delete
+    suspend fun delete(media: ExerciseMedia)
+
+    @Query("DELETE FROM exercise_media WHERE exerciseId = :exerciseId")
+    suspend fun deleteByExercise(exerciseId: Long)
+
+    @Query("DELETE FROM exercise_media WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    @Query("SELECT COUNT(*) FROM exercise_media WHERE exerciseId = :exerciseId")
+    fun getCountByExercise(exerciseId: Long): Flow<Int>
+
+    @Query("SELECT MAX(orderIndex) FROM exercise_media WHERE exerciseId = :exerciseId")
+    suspend fun getMaxOrderIndex(exerciseId: Long): Int?
+}

@@ -1,6 +1,7 @@
 package com.basefit.app.viewmodel
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.basefit.app.data.entity.*
@@ -162,6 +163,38 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    suspend fun addExerciseWithMedia(
+        name: String,
+        category: ExerciseCategory,
+        mediaItems: List<MediaItem>,
+        mediaStorage: com.basefit.app.data.storage.MediaStorage
+    ): Long {
+        // 先插入动作
+        val exerciseId = repository.insertExercise(
+            Exercise(name = name.trim(), category = category)
+        )
+        
+        // 再保存媒体文件
+        mediaItems.forEachIndexed { index, item ->
+            val result = mediaStorage.saveMedia(exerciseId, item.uri, item.type)
+            
+            result.getOrNull()?.let { mediaResource ->
+                repository.insertMedia(
+                    ExerciseMedia(
+                        exerciseId = exerciseId,
+                        type = item.type,
+                        fileName = mediaResource.fileName,
+                        localPath = mediaResource.localPath,
+                        thumbnailPath = mediaResource.thumbnailPath,
+                        orderIndex = index
+                    )
+                )
+            }
+        }
+        
+        return exerciseId
+    }
+
     fun updateExercise(exercise: Exercise) {
         viewModelScope.launch {
             repository.updateExercise(exercise)
@@ -174,6 +207,12 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
         }
     }
 }
+
+// 临时媒体项（用于UI展示）
+data class MediaItem(
+    val uri: Uri,
+    val type: com.basefit.app.data.entity.MediaType
+)
 
 class PlanViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FitRepository.getRepository(application)

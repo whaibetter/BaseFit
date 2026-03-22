@@ -1,6 +1,8 @@
 package com.basefit.app.data.entity
 
 import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 // 动作分类枚举
@@ -8,6 +10,13 @@ enum class ExerciseCategory {
     BODYWEIGHT,  // 自重训练
     STRENGTH,    // 力量训练
     CARDIO       // 有氧运动
+}
+
+// 媒体类型枚举
+enum class MediaType {
+    IMAGE,  // 图片
+    GIF,    // 动图
+    VIDEO   // 视频
 }
 
 // 动作实体
@@ -104,4 +113,31 @@ data class MonthlyStats(
     val totalCheckIns: Int,
     val totalSets: Int,
     val totalReps: Int
+)
+
+// 动作媒体资源实体
+@Entity(
+    tableName = "exercise_media",
+    foreignKeys = [
+        ForeignKey(
+            entity = Exercise::class,
+            parentColumns = ["id"],
+            childColumns = ["exerciseId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index(value = ["exerciseId"])]
+)
+data class ExerciseMedia(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val exerciseId: Long,
+    val type: MediaType,
+    val fileName: String,        // 文件名
+    val localPath: String? = null,    // 本地存储路径
+    val remoteUrl: String? = null,    // 远程URL（未来扩展云存储）
+    val thumbnailPath: String? = null, // 缩略图路径（视频）
+    val orderIndex: Int = 0,      // 排序索引
+    val description: String? = null, // 媒体描述
+    val createdAt: Long = System.currentTimeMillis()
 )

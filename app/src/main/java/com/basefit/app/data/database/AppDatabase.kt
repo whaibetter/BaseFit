@@ -10,9 +10,10 @@ import com.basefit.app.data.entity.*
         Exercise::class,
         WeekPlan::class,
         ChallengePlan::class,
-        CheckIn::class
+        CheckIn::class,
+        ExerciseMedia::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -21,6 +22,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun weekPlanDao(): WeekPlanDao
     abstract fun challengePlanDao(): ChallengePlanDao
     abstract fun checkInDao(): CheckInDao
+    abstract fun exerciseMediaDao(): ExerciseMediaDao
 
     companion object {
         @Volatile
@@ -51,5 +53,15 @@ class Converters {
     @TypeConverter
     fun toExerciseCategory(value: String): ExerciseCategory {
         return ExerciseCategory.valueOf(value)
+    }
+
+    @TypeConverter
+    fun fromMediaType(value: MediaType): String {
+        return value.name
+    }
+
+    @TypeConverter
+    fun toMediaType(value: String): MediaType {
+        return MediaType.valueOf(value)
     }
 }

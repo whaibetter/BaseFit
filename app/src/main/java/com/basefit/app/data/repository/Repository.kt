@@ -1,10 +1,13 @@
 package com.basefit.app.data.repository
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import com.basefit.app.data.dao.*
 import com.basefit.app.data.database.AppDatabase
 import com.basefit.app.data.entity.*
+import com.basefit.app.data.storage.LocalMediaStorage
+import com.basefit.app.data.storage.MediaStorage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -23,6 +26,7 @@ class FitRepository(context: Context) {
     private val weekPlanDao = database.weekPlanDao()
     private val challengePlanDao = database.challengePlanDao()
     private val checkInDao = database.checkInDao()
+    private val exerciseMediaDao = database.exerciseMediaDao()
 
     // Exercise operations
     fun getAllExercises(): Flow<List<Exercise>> = exerciseDao.getAll()
@@ -46,6 +50,25 @@ class FitRepository(context: Context) {
     suspend fun updateWeekPlan(plan: WeekPlan) = weekPlanDao.update(plan)
 
     suspend fun deleteWeekPlan(plan: WeekPlan) = weekPlanDao.delete(plan)
+
+    // ExerciseMedia operations
+    fun getMediaByExercise(exerciseId: Long): Flow<List<ExerciseMedia>> = 
+        exerciseMediaDao.getByExercise(exerciseId)
+
+    fun getMediaByExerciseAndType(exerciseId: Long, type: MediaType): Flow<List<ExerciseMedia>> =
+        exerciseMediaDao.getByExerciseAndType(exerciseId, type)
+
+    suspend fun getMediaById(id: Long): ExerciseMedia? = exerciseMediaDao.getById(id)
+
+    suspend fun insertMedia(media: ExerciseMedia): Long = exerciseMediaDao.insert(media)
+
+    suspend fun updateMedia(media: ExerciseMedia) = exerciseMediaDao.update(media)
+
+    suspend fun deleteMedia(media: ExerciseMedia) = exerciseMediaDao.delete(media)
+
+    suspend fun deleteMediaByExercise(exerciseId: Long) = exerciseMediaDao.deleteByExercise(exerciseId)
+
+    fun getMediaCountByExercise(exerciseId: Long): Flow<Int> = exerciseMediaDao.getCountByExercise(exerciseId)
 
     // ChallengePlan operations
     fun getAllActiveChallenges(): Flow<List<ChallengePlan>> = challengePlanDao.getAllActive()
