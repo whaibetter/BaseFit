@@ -124,13 +124,17 @@ class FitRepository(context: Context) {
             val completed = checkIns.isNotEmpty()
             val totalSets = checkIns.sumOf { it.completedSets }
             val totalReps = checkIns.sumOf { it.completedReps }
+            
+            // 加载媒体列表
+            val mediaList = exerciseMediaDao.getByExercise(plan.exerciseId).first()
 
             results.add(TodayPlanItem(
                 weekPlan = plan,
                 exercise = exercise,
                 isCompleted = completed,
                 completedSets = totalSets,
-                completedReps = totalReps
+                completedReps = totalReps,
+                mediaList = mediaList
             ))
         }
 
@@ -415,5 +419,6 @@ data class TodayPlanItem(
     val exercise: Exercise,
     val isCompleted: Boolean,
     val completedSets: Int,
-    val completedReps: Int
+    val completedReps: Int,
+    val mediaList: List<ExerciseMedia> = emptyList()
 )

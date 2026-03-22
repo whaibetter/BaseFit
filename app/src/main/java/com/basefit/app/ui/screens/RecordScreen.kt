@@ -1,5 +1,6 @@
 package com.basefit.app.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,10 +16,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.basefit.app.data.entity.ExerciseCategory
 import com.basefit.app.ui.theme.*
@@ -35,6 +40,20 @@ fun RecordScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val selectedDate = state.selectedDate
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // 监听页面恢复，自动刷新数据
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refresh()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
     
     // 根据选中日期筛选记录
     val displayedCheckIns = remember(state.checkIns, selectedDate) {
@@ -197,6 +216,7 @@ private fun CalendarGrid(
     selectedDate: Long?,
     onDateSelected: (Long?) -> Unit
 ) {
+    val context = LocalContext.current
     val calendar = Calendar.getInstance()
     calendar.set(year, month - 1, 1)
 
@@ -277,8 +297,13 @@ private fun CalendarGrid(
                                             else -> Color.Transparent
                                         }
                                     )
-                                    .clickable(enabled = checkInCount > 0) {
-                                        onDateSelected(if (isSelected) null else dayTimestamp)
+                                    .clickable {
+                                        if (checkInCount > 0) {
+                                            onDateSelected(if (isSelected) null else dayTimestamp)
+                                        } else {
+                                            val dateFormat = SimpleDateFormat("M月d日", Locale.getDefault())
+                                            Toast.makeText(context, "${dateFormat.format(Date(dayTimestamp))}暂无打卡记录", Toast.LENGTH_SHORT).show()
+                                        }
                                     },
                                 contentAlignment = Alignment.Center
                             ) {

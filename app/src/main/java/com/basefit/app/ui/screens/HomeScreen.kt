@@ -1,9 +1,13 @@
 package com.basefit.app.ui.screens
 
+import android.graphics.BitmapFactory
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,6 +19,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -27,9 +33,13 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.basefit.app.data.repository.TodayPlanItem
 import com.basefit.app.data.entity.ExerciseCategory
+import com.basefit.app.data.entity.ExerciseMedia
+import com.basefit.app.data.entity.MediaType
+import com.basefit.app.ui.components.MediaViewerDialog
 import com.basefit.app.ui.theme.*
 import com.basefit.app.viewmodel.ChallengePlanWithExercise
 import com.basefit.app.viewmodel.HomeViewModel
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -38,6 +48,7 @@ import java.util.*
 fun HomeScreen(
     onNavigateToPlan: () -> Unit,
     onNavigateToCheckIn: (Long, Long) -> Unit,
+    onNavigateToExerciseDetail: (Long) -> Unit,
     viewModel: HomeViewModel = viewModel(),
     bottomBarPadding: PaddingValues = PaddingValues()
 ) {
@@ -179,6 +190,9 @@ fun HomeScreen(
                                         onDetailCheckIn = { exerciseId ->
                                             val today = getDayStart(System.currentTimeMillis())
                                             onNavigateToCheckIn(exerciseId, today)
+                                        },
+                                        onViewDetail = { exerciseId ->
+                                            onNavigateToExerciseDetail(exerciseId)
                                         }
                                     )
                                 }
@@ -197,6 +211,9 @@ fun HomeScreen(
                                         onCheckIn = { exerciseId, sets, reps ->
                                             viewModel.quickCheckIn(exerciseId, sets, reps)
                                             Toast.makeText(context, "打卡成功! 挑战进度已更新", Toast.LENGTH_SHORT).show()
+                                        },
+                                        onViewDetail = { exerciseId ->
+                                            onNavigateToExerciseDetail(exerciseId)
                                         }
                                     )
                                 }
@@ -322,7 +339,8 @@ private fun ProgressCard(
 private fun TodayPlanCard(
     item: TodayPlanItem,
     onQuickCheckIn: (Long, Int, Int) -> Unit,
-    onDetailCheckIn: (Long) -> Unit
+    onDetailCheckIn: (Long) -> Unit,
+    onViewDetail: (Long) -> Unit
 ) {
     val categoryColor = when (item.exercise.category) {
         com.basefit.app.data.entity.ExerciseCategory.BODYWEIGHT -> BodyweightColor
@@ -335,6 +353,12 @@ private fun TodayPlanCard(
         com.basefit.app.data.entity.ExerciseCategory.STRENGTH -> Icons.Default.FitnessCenter
         com.basefit.app.data.entity.ExerciseCategory.CARDIO -> Icons.Default.DirectionsRun
     }
+    
+    // 媒体查看器状态
+    var showMediaViewer by remember { mutableStateOf(false) }
+    var selectedMediaIndex by remember { mutableStateOf(0) }
+    
+    val firstMedia = item.mediaList.sortedBy { it.orderIndex }.firstOrNull()
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -347,40 +371,89 @@ private fun TodayPlanCard(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
         ) {
-            // 左侧彩色条
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .width(4.dp)
-                    .height(if (item.isCompleted) 80.dp else 100.dp)
-                    .clip(RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
-                    .background(
-                        if (item.isCompleted) Success else categoryColor
-                    )
-            )
-            
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+            // 上半部分：媒体预览或分类图标
+            if (firstMedia != null && !item.isCompleted) {
+                // 有媒体时显示大图预览
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(140.dp)
+                        .clickable {
+                            selectedMediaIndex = 0
+                            showMediaViewer = true
+                        }
                 ) {
-                    // Category icon with gradient background
+                    MediaPreviewLarge(
+                        media = firstMedia,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    
+                    // 媒体数量角标
+                    if (item.mediaList.size > 1) {
+                        Surface(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(8.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color.Black.copy(alpha = 0.5f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Collections,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "${item.mediaList.size}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                    
+                    // 底部渐变遮罩
                     Box(
                         modifier = Modifier
-                            .size(52.dp)
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(40.dp)
+                            .background(
+                                androidx.compose.ui.graphics.Brush.verticalGradient(
+                                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.3f))
+                                )
+                            )
+                    )
+                }
+            }
+            
+            // 下半部分：动作信息
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 无媒体或已完成时显示分类图标
+                if (firstMedia == null || item.isCompleted) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
                             .clip(CircleShape)
                             .background(
-                                if (item.isCompleted) 
+                                if (item.isCompleted)
                                     Success.copy(alpha = 0.15f)
-                                else 
+                                else
                                     categoryColor.copy(alpha = 0.12f)
                             ),
                         contentAlignment = Alignment.Center
@@ -389,149 +462,307 @@ private fun TodayPlanCard(
                             imageVector = if (item.isCompleted) Icons.Default.Check else categoryIcon,
                             contentDescription = null,
                             tint = if (item.isCompleted) Success else categoryColor,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                     }
+                    Spacer(modifier = Modifier.width(12.dp))
+                }
 
-                    Spacer(modifier = Modifier.width(14.dp))
-
-                    // Exercise info
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = item.exercise.name,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = if (item.isCompleted) TextSecondary else TextPrimary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            if (item.isCompleted) {
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = Success.copy(alpha = 0.15f)
-                                ) {
-                                    Text(
-                                        text = "已完成",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Success,
-                                        fontWeight = FontWeight.SemiBold,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                                    )
-                                }
+                // 动作信息
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onViewDetail(item.exercise.id) }
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = item.exercise.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (item.isCompleted) TextSecondary else TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            Icons.Default.ChevronRight,
+                            contentDescription = "查看详情",
+                            tint = TextHint,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        if (item.isCompleted) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Success.copy(alpha = 0.15f)
+                            ) {
+                                Text(
+                                    text = "已完成",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Success,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
                             }
                         }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.TrackChanges,
+                            contentDescription = null,
+                            tint = TextSecondary,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "${item.weekPlan.targetSets}组 × ${item.weekPlan.targetReps}次",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
                         
-                        Spacer(modifier = Modifier.height(6.dp))
-                        
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        if (item.isCompleted) {
+                            Spacer(modifier = Modifier.width(12.dp))
                             Icon(
-                                Icons.Default.TrackChanges,
+                                Icons.Default.CheckCircle,
                                 contentDescription = null,
-                                tint = TextSecondary,
-                                modifier = Modifier.size(14.dp)
+                                tint = Success,
+                                modifier = Modifier.size(12.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "${item.weekPlan.targetSets}组 × ${item.weekPlan.targetReps}次",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary
+                                text = "${item.completedSets}组 × ${item.completedReps}次",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Success,
+                                fontWeight = FontWeight.Medium
                             )
-                        }
-                        
-                        if (item.isCompleted) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint = Success,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "实际: ${item.completedSets}组 × ${item.completedReps}次",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Success,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
                         }
                     }
                 }
-
-                // Action buttons
-                if (!item.isCompleted) {
-                    Spacer(modifier = Modifier.height(14.dp))
-                    
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+            }
+            
+            // 操作按钮
+            if (!item.isCompleted) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            onQuickCheckIn(
+                                item.exercise.id,
+                                item.weekPlan.targetSets,
+                                item.weekPlan.targetReps
+                            )
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = categoryColor)
                     ) {
-                        // Quick check-in button
-                        Button(
-                            onClick = {
-                                onQuickCheckIn(
-                                    item.exercise.id,
-                                    item.weekPlan.targetSets,
-                                    item.weekPlan.targetReps
-                                )
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(44.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = categoryColor
-                            ),
-                            elevation = ButtonDefaults.buttonElevation(
-                                defaultElevation = 2.dp
-                            )
-                        ) {
-                            Icon(
-                                Icons.Default.Check,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                "快速打卡",
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                        
-                        // Detail check-in button
-                        OutlinedButton(
-                            onClick = { onDetailCheckIn(item.exercise.id) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(44.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.5.dp, categoryColor.copy(alpha = 0.5f)),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = categoryColor
-                            )
-                        ) {
-                            Icon(
-                                Icons.Default.Edit,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                "详细记录",
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
+                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("快速打卡", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    }
+                    
+                    OutlinedButton(
+                        onClick = { onDetailCheckIn(item.exercise.id) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, categoryColor.copy(alpha = 0.5f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = categoryColor)
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("详细记录", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                     }
                 }
+            }
+        }
+    }
+    
+    // 媒体查看器
+    if (showMediaViewer && item.mediaList.isNotEmpty()) {
+        MediaViewerDialog(
+            mediaList = item.mediaList.sortedBy { it.orderIndex },
+            initialIndex = selectedMediaIndex,
+            onDismiss = { showMediaViewer = false }
+        )
+    }
+}
+
+@Composable
+private fun MediaPreviewLarge(
+    media: ExerciseMedia,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    
+    val typeColor = when (media.type) {
+        MediaType.IMAGE -> Primary
+        MediaType.GIF -> Warning
+        MediaType.VIDEO -> CardioColor
+    }
+
+    val typeIcon = when (media.type) {
+        MediaType.IMAGE -> Icons.Default.Image
+        MediaType.GIF -> Icons.Default.Gif
+        MediaType.VIDEO -> Icons.Default.Videocam
+    }
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+            .background(Surface),
+        contentAlignment = Alignment.Center
+    ) {
+        val imagePath = media.thumbnailPath ?: media.localPath
+        val bitmap = remember(imagePath) {
+            imagePath?.let { path ->
+                val file = File(path)
+                if (file.exists()) {
+                    BitmapFactory.decodeFile(path)
+                } else null
+            }
+        }
+
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+
+            // 视频类型显示播放图标
+            if (media.type == MediaType.VIDEO) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.5f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+            }
+        } else {
+            // 默认占位图
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(typeColor.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        typeIcon,
+                        contentDescription = null,
+                        tint = typeColor,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = media.type.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = typeColor
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MediaThumbnailSmall(
+    media: ExerciseMedia,
+    size: Int = 48,
+    onClick: () -> Unit = {}
+) {
+    val typeColor = when (media.type) {
+        MediaType.IMAGE -> Primary
+        MediaType.GIF -> Warning
+        MediaType.VIDEO -> CardioColor
+    }
+
+    val typeIcon = when (media.type) {
+        MediaType.IMAGE -> Icons.Default.Image
+        MediaType.GIF -> Icons.Default.Gif
+        MediaType.VIDEO -> Icons.Default.Videocam
+    }
+
+    Box(
+        modifier = Modifier
+            .size(size.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Surface)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        val imagePath = media.thumbnailPath ?: media.localPath
+        val bitmap = remember(imagePath) {
+            imagePath?.let { path ->
+                val file = File(path)
+                if (file.exists()) {
+                    BitmapFactory.decodeFile(path)
+                } else null
+            }
+        }
+
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+
+            if (media.type == MediaType.VIDEO) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size((size / 3).dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.5f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size((size / 5).dp)
+                    )
+                }
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(typeColor.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    typeIcon,
+                    contentDescription = null,
+                    tint = typeColor,
+                    modifier = Modifier.size((size / 2).dp)
+                )
             }
         }
     }
@@ -642,7 +873,8 @@ private fun getDayStart(timestamp: Long): Long {
 @Composable
 private fun ChallengeCheckInCard(
     item: ChallengePlanWithExercise,
-    onCheckIn: (Long, Int, Int) -> Unit
+    onCheckIn: (Long, Int, Int) -> Unit,
+    onViewDetail: (Long) -> Unit
 ) {
     val challenge = item.challenge
     val targetReps = challenge.targetTotalReps
@@ -653,6 +885,10 @@ private fun ChallengeCheckInCard(
     var showInputDialog by remember { mutableStateOf(false) }
     var inputSets by remember { mutableStateOf(challenge.targetSets.toString()) }
     var inputReps by remember { mutableStateOf(challenge.targetReps.toString()) }
+    
+    // 媒体查看器状态
+    var showMediaViewer by remember { mutableStateOf(false) }
+    var selectedMediaIndex by remember { mutableStateOf(0) }
 
     val categoryColor = when (item.exercise.category) {
         ExerciseCategory.BODYWEIGHT -> BodyweightColor
@@ -678,32 +914,60 @@ private fun ChallengeCheckInCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .background(
-                            (if (isCompleted) Success else Warning).copy(alpha = 0.12f),
-                            RoundedCornerShape(10.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.EmojiEvents,
-                        contentDescription = null,
-                        tint = if (isCompleted) Success else Warning,
-                        modifier = Modifier.size(24.dp)
+                // 媒体缩略图或挑战图标
+                val firstMedia = item.mediaList.sortedBy { it.orderIndex }.firstOrNull()
+                
+                if (firstMedia != null && !isCompleted) {
+                    // 有媒体时显示缩略图
+                    MediaThumbnailSmall(
+                        media = firstMedia,
+                        size = 44,
+                        onClick = {
+                            selectedMediaIndex = 0
+                            showMediaViewer = true
+                        }
                     )
+                } else {
+                    // 无媒体或已完成时显示挑战图标
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(
+                                (if (isCompleted) Success else Warning).copy(alpha = 0.12f),
+                                RoundedCornerShape(10.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.EmojiEvents,
+                            contentDescription = null,
+                            tint = if (isCompleted) Success else Warning,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
                 
                 Spacer(modifier = Modifier.width(12.dp))
                 
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = challenge.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isCompleted) TextSecondary else TextPrimary
-                    )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onViewDetail(item.exercise.id) }
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = challenge.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isCompleted) TextSecondary else TextPrimary
+                        )
+                        Icon(
+                            Icons.Default.ChevronRight,
+                            contentDescription = "查看详情",
+                            tint = TextHint,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                     Text(
                         text = item.exercise.name,
                         style = MaterialTheme.typography.bodySmall,
@@ -760,6 +1024,27 @@ private fun ChallengeCheckInCard(
                 trackColor = Divider
             )
             
+            // 媒体数量提示（只有多个媒体时才显示）
+            if (item.mediaList.size > 1) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Collections,
+                        contentDescription = null,
+                        tint = TextHint,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "${item.mediaList.size} 个媒体",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextHint
+                    )
+                }
+            }
+            
             // Check-in button
             if (!isCompleted) {
                 Spacer(modifier = Modifier.height(12.dp))
@@ -778,6 +1063,15 @@ private fun ChallengeCheckInCard(
                 }
             }
         }
+    }
+    
+    // 媒体查看器
+    if (showMediaViewer && item.mediaList.isNotEmpty()) {
+        MediaViewerDialog(
+            mediaList = item.mediaList.sortedBy { it.orderIndex },
+            initialIndex = selectedMediaIndex,
+            onDismiss = { showMediaViewer = false }
+        )
     }
     
     // Input dialog

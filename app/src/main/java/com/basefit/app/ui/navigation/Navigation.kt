@@ -14,6 +14,7 @@ sealed class Screen(val route: String) {
     object Record : Screen("record")
     object Stats : Screen("stats")
     object Settings : Screen("settings")
+    object ExerciseManagement : Screen("exercise_management")
     object AddExercise : Screen("add_exercise")
     object EditExercise : Screen("edit_exercise/{exerciseId}") {
         fun createRoute(exerciseId: Long) = "edit_exercise/$exerciseId"
@@ -43,6 +44,9 @@ fun BaseFitNavGraph(
                 onNavigateToCheckIn = { exerciseId, date ->
                     navController.navigate(Screen.CheckIn.createRoute(exerciseId, date))
                 },
+                onNavigateToExerciseDetail = { exerciseId ->
+                    navController.navigate(Screen.ExerciseDetail.createRoute(exerciseId))
+                },
                 bottomBarPadding = bottomBarPadding
             )
         }
@@ -71,13 +75,46 @@ fun BaseFitNavGraph(
         composable(Screen.Settings.route) {
             SettingsScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToAddExercise = { navController.navigate(Screen.AddExercise.route) }
+                onNavigateToExerciseManagement = { navController.navigate(Screen.ExerciseManagement.route) }
+            )
+        }
+        
+        composable(Screen.ExerciseManagement.route) {
+            ExerciseManagementScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToAddExercise = { navController.navigate(Screen.AddExercise.route) },
+                onNavigateToEditExercise = { exerciseId ->
+                    navController.navigate(Screen.EditExercise.createRoute(exerciseId))
+                }
             )
         }
         
         composable(Screen.AddExercise.route) {
             AddExerciseScreen(
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
+        composable(
+            route = Screen.EditExercise.route
+        ) { backStackEntry ->
+            val exerciseId = backStackEntry.arguments?.getString("exerciseId")?.toLongOrNull() ?: 0L
+            EditExerciseScreen(
+                exerciseId = exerciseId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
+        composable(
+            route = Screen.ExerciseDetail.route
+        ) { backStackEntry ->
+            val exerciseId = backStackEntry.arguments?.getString("exerciseId")?.toLongOrNull() ?: 0L
+            ExerciseDetailScreen(
+                exerciseId = exerciseId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToEdit = { id ->
+                    navController.navigate(Screen.EditExercise.createRoute(id))
+                }
             )
         }
         

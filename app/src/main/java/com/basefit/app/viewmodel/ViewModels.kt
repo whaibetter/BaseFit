@@ -19,8 +19,14 @@ data class HomeState(
     val isLoading: Boolean = true
 )
 
+// 动作带媒体的数据类
+data class ExerciseWithMedia(
+    val exercise: Exercise,
+    val mediaList: List<ExerciseMedia> = emptyList()
+)
+
 data class ExerciseState(
-    val exercises: List<Exercise> = emptyList(),
+    val exercises: List<ExerciseWithMedia> = emptyList(),
     val isLoading: Boolean = true
 )
 
@@ -39,7 +45,8 @@ data class WeekPlanWithExercise(
 data class ChallengePlanWithExercise(
     val challenge: ChallengePlan,
     val exercise: Exercise,
-    val completedReps: Int = 0 // 已完成次数
+    val completedReps: Int = 0, // 已完成次数
+    val mediaList: List<ExerciseMedia> = emptyList()
 )
 
 data class RecordState(
@@ -93,7 +100,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                             startDate = challenge.startDate,
                             endDate = challenge.endDate + 24 * 60 * 60 * 1000 - 1
                         )
-                        ChallengePlanWithExercise(challenge, exercise, completedReps)
+                        // 加载媒体列表
+                        val mediaList = repository.getMediaByExercise(challenge.exerciseId).first()
+                        ChallengePlanWithExercise(challenge, exercise, completedReps, mediaList)
                     } else null
                 }
             
@@ -150,7 +159,12 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
             repository.getAllActiveExercises()
                 .catch { _state.update { it.copy(isLoading = false) } }
                 .collect { exercises ->
-                    _state.update { it.copy(exercises = exercises, isLoading = false) }
+                    // 加载每个动作的媒体
+                    val exercisesWithMedia = exercises.map { exercise ->
+                        val mediaList = repository.getMediaByExercise(exercise.id).first()
+                        ExerciseWithMedia(exercise, mediaList)
+                    }
+                    _state.update { it.copy(exercises = exercisesWithMedia, isLoading = false) }
                 }
         }
     }
@@ -221,6 +235,10 @@ class PlanViewModel(application: Application) : AndroidViewModel(application) {
     val state: StateFlow<PlanState> = _state
 
     init {
+        loadData()
+    }
+
+    fun refresh() {
         loadData()
     }
 
@@ -337,6 +355,10 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             loadMonth(_state.value.currentYear, _state.value.currentMonth)
         }
+    }
+
+    fun refresh() {
+        loadCurrentMonth()
     }
 
     fun loadMonth(year: Int, month: Int) {
@@ -462,4 +484,113 @@ class CheckInViewModel(application: Application) : AndroidViewModel(application)
     }
 
     suspend fun getExercise(id: Long): Exercise? = repository.getExerciseById(id)
+}
+
+// 动作详情状态
+data class ExerciseDetailState(
+    val exercise: Exercise? = null,
+    val mediaList: List<ExerciseMedia> = emptyList(),
+    val checkIns: List<CheckInWithExercise> = emptyList(),
+    val isLoading: Boolean = true
+)
+
+class ExerciseDetailViewModel(application: Application) : AndroidViewModel(application) {
+    private val repository = FitRepository.getRepository(application)
+    
+    private val _state = MutableStateFlow(ExerciseDetailState())
+    val state: StateFlow<ExerciseDetailState> = _state
+    
+    fun loadExercise(exerciseId: Long) {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true) }
+            
+            val exercise = repository.getExerciseById(exerciseId)
+            val mediaList = repository.getMediaByExercise(exerciseId).first()
+            
+            // 获取该动作的所有打卡记录
+            val allCheckIns = repository.getAllCheckIns().first()
+            val exercises = repository.getAllActiveExercises().first()
+            val checkIns = allCheckIns
+                .filter { it.exerciseId == exerciseId }
+                .mapNotNull { checkIn ->
+                    val ex = exercises.find { it.id == checkIn.exerciseId }
+                    if (ex != null) CheckInWithExercise(checkIn, ex) else null
+                }
+                .sortedByDescending { it.checkIn.date }
+            
+            _state.update { 
+                it.copy(
+                    exercise = exercise,
+                    mediaList = mediaList,
+                    checkIns = checkIns,
+                    isLoading = false
+                )
+            }
+        }
+    }
+    
+    fun deleteMedia(media: ExerciseMedia) {
+        viewModelScope.launch {
+            repository.deleteMedia(media)
+            // 删除本地文件
+            media.localPath?.let { path ->
+                java.io.File(path).delete()
+            }
+            media.thumbnailPath?.let { path ->
+                java.io.File(path).delete()
+            }
+            // 重新加载
+            _state.value.exercise?.id?.let { loadExercise(it) }
+        }
+    }
+    
+    fun updateExercise(exercise: Exercise) {
+        viewModelScope.launch {
+            repository.updateExercise(exercise)
+            loadExercise(exercise.id)
+        }
+    }
+    
+    fun updateExercise(
+        exercise: Exercise,
+        mediaToDelete: List<ExerciseMedia>,
+        newMediaItems: List<MediaItem>,
+        mediaStorage: com.basefit.app.data.storage.MediaStorage
+    ) {
+        viewModelScope.launch {
+            // 更新动作信息
+            repository.updateExercise(exercise)
+            
+            // 删除标记的媒体
+            mediaToDelete.forEach { media ->
+                repository.deleteMedia(media)
+                media.localPath?.let { path ->
+                    mediaStorage.deleteMedia(path)
+                }
+                media.thumbnailPath?.let { path ->
+                    mediaStorage.deleteMedia(path)
+                }
+            }
+            
+            // 添加新媒体
+            val existingCount = repository.getMediaByExercise(exercise.id).first().size
+            newMediaItems.forEachIndexed { index, item ->
+                val result = mediaStorage.saveMedia(exercise.id, item.uri, item.type)
+                result.getOrNull()?.let { resource ->
+                    repository.insertMedia(
+                        ExerciseMedia(
+                            exerciseId = exercise.id,
+                            type = item.type,
+                            fileName = resource.fileName,
+                            localPath = resource.localPath,
+                            thumbnailPath = resource.thumbnailPath,
+                            orderIndex = existingCount + index
+                        )
+                    )
+                }
+            }
+            
+            loadExercise(exercise.id)
+        }
+    }
 }

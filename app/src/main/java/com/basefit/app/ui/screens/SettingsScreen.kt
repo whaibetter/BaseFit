@@ -2,10 +2,8 @@ package com.basefit.app.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -17,15 +15,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.basefit.app.data.entity.Exercise
-import com.basefit.app.data.entity.ExerciseCategory
 import com.basefit.app.data.repository.FitRepository
 import com.basefit.app.ui.theme.*
-import com.basefit.app.viewmodel.ExerciseViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -34,14 +27,10 @@ import java.util.*
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
-    onNavigateToAddExercise: () -> Unit,
-    viewModel: ExerciseViewModel = viewModel()
+    onNavigateToExerciseManagement: () -> Unit
 ) {
-    val state by viewModel.state.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var showExerciseList by remember { mutableStateOf(false) }
-    var showDeleteDialog by remember { mutableStateOf<Exercise?>(null) }
     var showAboutDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -80,8 +69,8 @@ fun SettingsScreen(
                     SettingsItem(
                         icon = Icons.Default.FitnessCenter,
                         title = "动作管理",
-                        subtitle = "添加或删除动作",
-                        onClick = { showExerciseList = true }
+                        subtitle = "添加、编辑或删除动作",
+                        onClick = onNavigateToExerciseManagement
                     )
                 }
 
@@ -116,77 +105,6 @@ fun SettingsScreen(
                     )
                 }
             }
-        }
-
-        // Exercise List Dialog
-        if (showExerciseList) {
-            AlertDialog(
-                onDismissRequest = { showExerciseList = false },
-                title = { Text("动作管理") },
-                text = {
-                    Column {
-                        if (state.exercises.isEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(100.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("暂无动作，点击下方添加", color = TextSecondary)
-                            }
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.height(300.dp)
-                            ) {
-                                items(state.exercises, key = { it.id }) { exercise ->
-                                    ExerciseListItem(
-                                        exercise = exercise,
-                                        onDelete = { showDeleteDialog = exercise }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = onNavigateToAddExercise) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("添加动作")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showExerciseList = false }) {
-                        Text("关闭")
-                    }
-                }
-            )
-        }
-
-        // Delete Confirmation Dialog
-        showDeleteDialog?.let { exercise ->
-            AlertDialog(
-                onDismissRequest = { showDeleteDialog = null },
-                title = { Text("确认删除") },
-                text = { Text("确定要删除「${exercise.name}」吗？相关的计划和记录也会被删除。") },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            viewModel.deleteExercise(exercise)
-                            showDeleteDialog = null
-                            Toast.makeText(context, "已删除", Toast.LENGTH_SHORT).show()
-                        },
-                        colors = ButtonDefaults.textButtonColors(contentColor = Error)
-                    ) {
-                        Text("删除")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDeleteDialog = null }) {
-                        Text("取消")
-                    }
-                }
-            )
         }
 
         // About Dialog
@@ -318,71 +236,6 @@ private fun SettingsItem(
                 Icons.Default.ChevronRight,
                 contentDescription = null,
                 tint = TextHint
-            )
-        }
-    }
-}
-
-@Composable
-private fun ExerciseListItem(
-    exercise: Exercise,
-    onDelete: () -> Unit
-) {
-    val categoryColor = when (exercise.category) {
-        ExerciseCategory.BODYWEIGHT -> BodyweightColor
-        ExerciseCategory.STRENGTH -> StrengthColor
-        ExerciseCategory.CARDIO -> CardioColor
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(categoryColor.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = exercise.name.first().toString(),
-                color = categoryColor,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = exercise.name,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = when (exercise.category) {
-                    ExerciseCategory.BODYWEIGHT -> "自重训练"
-                    ExerciseCategory.STRENGTH -> "力量训练"
-                    ExerciseCategory.CARDIO -> "有氧运动"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary
-            )
-        }
-
-        IconButton(onClick = onDelete) {
-            Icon(
-                Icons.Default.Delete,
-                contentDescription = "删除",
-                tint = Error,
-                modifier = Modifier.size(20.dp)
             )
         }
     }
