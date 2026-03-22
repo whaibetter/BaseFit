@@ -41,6 +41,11 @@ class FitRepository(context: Context) {
 
     suspend fun deleteExercise(exercise: Exercise) = exerciseDao.delete(exercise)
 
+    suspend fun getExerciseByName(name: String): Exercise? = exerciseDao.getByName(name.trim())
+
+    suspend fun getExerciseByNameExcludeId(name: String, excludeId: Long): Exercise? = 
+        exerciseDao.getByNameExcludeId(name.trim(), excludeId)
+
     // WeekPlan operations
     fun getWeekPlansForDay(dayOfWeek: Int): Flow<List<WeekPlan>> = 
         weekPlanDao.getActiveByDayOfWeek(dayOfWeek)

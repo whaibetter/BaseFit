@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 import com.basefit.app.data.entity.ExerciseCategory
 import com.basefit.app.data.entity.ExerciseMedia
 import com.basefit.app.data.entity.MediaType
@@ -47,6 +49,7 @@ fun EditExerciseScreen(
     val context = LocalContext.current
     val state by viewModel.state.collectAsState()
     val mediaStorage = remember { LocalMediaStorage.getInstance(context) }
+    val scope = rememberCoroutineScope()
     
     // 表单状态
     var name by remember { mutableStateOf("") }
@@ -306,17 +309,26 @@ fun EditExerciseScreen(
                         }
                         
                         state.exercise?.let { exercise ->
-                            viewModel.updateExercise(
-                                exercise.copy(
-                                    name = name.trim(),
-                                    category = selectedCategory
-                                ),
-                                mediaToDelete = mediaToDelete,
-                                newMediaItems = newMediaItems,
-                                mediaStorage = mediaStorage
-                            )
-                            Toast.makeText(context, "保存成功", Toast.LENGTH_SHORT).show()
-                            onNavigateBack()
+                            scope.launch {
+                                // 检查名称是否与其他动作重复
+                                if (name.trim() != exercise.name && 
+                                    viewModel.checkNameExistsForOther(name.trim(), exercise.id)) {
+                                    Toast.makeText(context, "动作名称已存在，请使用其他名称", Toast.LENGTH_SHORT).show()
+                                    return@launch
+                                }
+                                
+                                viewModel.updateExercise(
+                                    exercise.copy(
+                                        name = name.trim(),
+                                        category = selectedCategory
+                                    ),
+                                    mediaToDelete = mediaToDelete,
+                                    newMediaItems = newMediaItems,
+                                    mediaStorage = mediaStorage
+                                )
+                                Toast.makeText(context, "保存成功", Toast.LENGTH_SHORT).show()
+                                onNavigateBack()
+                            }
                         }
                     },
                     modifier = Modifier

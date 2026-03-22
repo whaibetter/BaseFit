@@ -29,6 +29,12 @@ interface ExerciseDao {
 
     @Query("DELETE FROM exercises WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("SELECT * FROM exercises WHERE name = :name AND isActive = 1 LIMIT 1")
+    suspend fun getByName(name: String): Exercise?
+
+    @Query("SELECT * FROM exercises WHERE name = :name AND id != :excludeId AND isActive = 1 LIMIT 1")
+    suspend fun getByNameExcludeId(name: String, excludeId: Long): Exercise?
 }
 
 @Dao

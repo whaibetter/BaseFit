@@ -169,6 +169,14 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun refresh() {
+        loadExercises()
+    }
+
+    suspend fun checkNameExists(name: String): Boolean {
+        return repository.getExerciseByName(name) != null
+    }
+
     fun addExercise(name: String, category: ExerciseCategory) {
         viewModelScope.launch {
             repository.insertExercise(
@@ -499,6 +507,10 @@ class ExerciseDetailViewModel(application: Application) : AndroidViewModel(appli
     
     private val _state = MutableStateFlow(ExerciseDetailState())
     val state: StateFlow<ExerciseDetailState> = _state
+    
+    suspend fun checkNameExistsForOther(name: String, currentId: Long): Boolean {
+        return repository.getExerciseByNameExcludeId(name, currentId) != null
+    }
     
     fun loadExercise(exerciseId: Long) {
         viewModelScope.launch {

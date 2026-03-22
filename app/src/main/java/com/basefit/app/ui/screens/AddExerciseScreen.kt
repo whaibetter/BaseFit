@@ -314,6 +314,13 @@ fun AddExerciseScreen(
 
                     isLoading = true
                     scope.launch {
+                        // 检查名称是否已存在
+                        if (viewModel.checkNameExists(name.trim())) {
+                            isLoading = false
+                            Toast.makeText(context, "动作名称已存在，请使用其他名称", Toast.LENGTH_SHORT).show()
+                            return@launch
+                        }
+
                         // 添加动作
                         val exerciseId = viewModel.addExerciseWithMedia(
                             name = name.trim(),
