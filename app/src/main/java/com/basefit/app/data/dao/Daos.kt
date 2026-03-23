@@ -152,12 +152,57 @@ interface CheckInDao {
     suspend fun getTotalSetsInRange(exerciseId: Long, startDate: Long, endDate: Long): Int?
 
     @Query("""
-        SELECT SUM(completedReps) FROM check_ins 
-        WHERE exerciseId = :exerciseId 
+        SELECT SUM(completedReps) FROM check_ins
+        WHERE exerciseId = :exerciseId
         AND date BETWEEN :startDate AND :endDate
     """)
     suspend fun getTotalRepsInRange(exerciseId: Long, startDate: Long, endDate: Long): Int?
+
+    @Query("""
+        SELECT SUM(completedReps) FROM check_ins
+        WHERE date BETWEEN :startDate AND :endDate
+    """)
+    suspend fun getTotalRepsInDateRange(startDate: Long, endDate: Long): Int?
+
+    @Query("""
+        SELECT SUM(completedSets) FROM check_ins
+        WHERE date BETWEEN :startDate AND :endDate
+    """)
+    suspend fun getTotalSetsInDateRange(startDate: Long, endDate: Long): Int?
+
+    @Query("""
+        SELECT COUNT(DISTINCT date) FROM check_ins
+        WHERE date BETWEEN :startDate AND :endDate
+    """)
+    suspend fun getActiveDaysInDateRange(startDate: Long, endDate: Long): Int
+
+    @Query("SELECT date FROM check_ins ORDER BY date ASC LIMIT 1")
+    suspend fun getFirstCheckInDate(): Long?
+
+    @Query("SELECT date FROM check_ins ORDER BY date DESC LIMIT 1")
+    suspend fun getLastCheckInDate(): Long?
+
+    @Query("""
+        SELECT e.category, COUNT(*) as count, SUM(c.completedReps) as totalReps
+        FROM check_ins c
+        INNER JOIN exercises e ON c.exerciseId = e.id
+        GROUP BY e.category
+    """)
+    suspend fun getCategoryDistribution(): List<CategoryDistributionRaw>
+
+    @Query("""
+        SELECT * FROM check_ins
+        WHERE exerciseId = :exerciseId
+        ORDER BY date ASC
+    """)
+    suspend fun getCheckInsByExerciseOrdered(exerciseId: Long): List<CheckIn>
 }
+
+data class CategoryDistributionRaw(
+    val category: ExerciseCategory,
+    val count: Int,
+    val totalReps: Int
+)
 
 @Dao
 interface ExerciseMediaDao {
@@ -196,4 +241,79 @@ interface ExerciseMediaDao {
 
     @Query("SELECT MAX(orderIndex) FROM exercise_media WHERE exerciseId = :exerciseId")
     suspend fun getMaxOrderIndex(exerciseId: Long): Int?
+}
+
+@Dao
+interface UserProfileDao {
+    @Query("SELECT * FROM user_profile WHERE id = 1")
+    fun getProfile(): Flow<UserProfile?>
+
+    @Query("SELECT * FROM user_profile WHERE id = 1")
+    suspend fun getProfileOnce(): UserProfile?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdate(profile: UserProfile)
+
+    @Delete
+    suspend fun delete(profile: UserProfile)
+}
+
+@Dao
+interface ProfileEditHistoryDao {
+    @Query("SELECT * FROM profile_edit_history ORDER BY editedAt DESC")
+    fun getAllHistory(): Flow<List<ProfileEditHistory>>
+
+    @Query("SELECT * FROM profile_edit_history WHERE fieldName = :fieldName ORDER BY editedAt DESC")
+    fun getHistoryByField(fieldName: String): Flow<List<ProfileEditHistory>>
+
+    @Query("SELECT * FROM profile_edit_history ORDER BY editedAt DESC LIMIT :limit")
+    fun getRecentHistory(limit: Int): Flow<List<ProfileEditHistory>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(history: ProfileEditHistory)
+
+    @Query("DELETE FROM profile_edit_history")
+    suspend fun deleteAll()
+}
+
+@Dao
+interface BodyMetricDao {
+    @Query("SELECT * FROM body_metrics ORDER BY recordDate DESC")
+    fun getAllMetrics(): Flow<List<BodyMetric>>
+
+    @Query("SELECT * FROM body_metrics WHERE type = :type ORDER BY recordDate DESC")
+    fun getMetricsByType(type: BodyMetricType): Flow<List<BodyMetric>>
+
+    @Query("SELECT * FROM body_metrics WHERE type = :type ORDER BY recordDate DESC LIMIT 1")
+    suspend fun getLatestMetricByType(type: BodyMetricType): BodyMetric?
+
+    @Query("SELECT * FROM body_metrics WHERE type = :type AND recordDate BETWEEN :startDate AND :endDate ORDER BY recordDate ASC")
+    fun getMetricsByTypeAndDateRange(type: BodyMetricType, startDate: Long, endDate: Long): Flow<List<BodyMetric>>
+
+    @Query("SELECT * FROM body_metrics WHERE recordDate BETWEEN :startDate AND :endDate ORDER BY recordDate DESC")
+    fun getMetricsByDateRange(startDate: Long, endDate: Long): Flow<List<BodyMetric>>
+
+    @Query("SELECT * FROM body_metrics WHERE recordDate >= :startDate ORDER BY recordDate ASC")
+    suspend fun getMetricsSince(startDate: Long): List<BodyMetric>
+
+    @Query("SELECT DISTINCT recordDate FROM body_metrics WHERE recordDate BETWEEN :startDate AND :endDate ORDER BY recordDate ASC")
+    suspend fun getRecordDatesInRange(startDate: Long, endDate: Long): List<Long>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(metric: BodyMetric): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(metrics: List<BodyMetric>)
+
+    @Update
+    suspend fun update(metric: BodyMetric)
+
+    @Delete
+    suspend fun delete(metric: BodyMetric)
+
+    @Query("DELETE FROM body_metrics WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM body_metrics WHERE type = :type")
+    suspend fun deleteByType(type: BodyMetricType)
 }

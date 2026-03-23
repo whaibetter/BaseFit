@@ -9,28 +9,31 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.navigation.NavController
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.basefit.app.data.preferences.ThemePreferencesManager
 import com.basefit.app.ui.navigation.BaseFitNavGraph
 import com.basefit.app.ui.navigation.Screen
 import com.basefit.app.ui.theme.BaseFitTheme
-import com.basefit.app.ui.theme.Background
 import com.basefit.app.ui.theme.Primary
 import com.basefit.app.ui.theme.TextHint
-import com.basefit.app.ui.theme.TextPrimary
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            BaseFitTheme {
+            val themePreferencesManager = ThemePreferencesManager.getInstance(applicationContext)
+            val themeMode by themePreferencesManager.themeModeFlow.collectAsState(initial = com.basefit.app.ui.theme.AppThemeMode.SYSTEM)
+
+            BaseFitTheme(themeMode = themeMode) {
                 BaseFitMainScreen()
             }
         }
@@ -45,7 +48,7 @@ sealed class BottomNavItem(
     object Home : BottomNavItem(Screen.Home.route, "首页", Icons.Default.Home)
     object Record : BottomNavItem(Screen.Record.route, "记录", Icons.Default.CalendarMonth)
     object Stats : BottomNavItem(Screen.Stats.route, "统计", Icons.Default.BarChart)
-    object Settings : BottomNavItem(Screen.Settings.route, "设置", Icons.Default.Settings)
+    object My : BottomNavItem(Screen.My.route, "我的", Icons.Default.Person)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,7 +59,7 @@ fun BaseFitMainScreen() {
         BottomNavItem.Home,
         BottomNavItem.Record,
         BottomNavItem.Stats,
-        BottomNavItem.Settings
+        BottomNavItem.My
     )
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -66,20 +69,21 @@ fun BaseFitMainScreen() {
         Screen.Home.route,
         Screen.Record.route,
         Screen.Stats.route,
-        Screen.Settings.route
+        Screen.My.route
     )
 
     Scaffold(
-        containerColor = Background,
+        modifier = Modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar(
-                    containerColor = Background,
+                    containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = Primary
                 ) {
                     navItems.forEach { item ->
                         val selected = currentRoute == item.route
-                        
+
                         NavigationBarItem(
                             icon = {
                                 Icon(

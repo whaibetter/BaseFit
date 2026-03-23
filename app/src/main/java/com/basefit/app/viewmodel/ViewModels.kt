@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.basefit.app.data.demo.DemoData
 import com.basefit.app.data.entity.*
 import com.basefit.app.data.repository.FitRepository
 import com.basefit.app.data.repository.TodayPlanItem
@@ -16,7 +17,8 @@ data class HomeState(
     val activeChallenges: List<ChallengePlanWithExercise> = emptyList(),
     val completedCount: Int = 0,
     val totalCount: Int = 0,
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val selectedTab: Int = 0 // 0: 今日计划, 1: 进行中的挑战
 )
 
 // 动作带媒体的数据类
@@ -67,6 +69,13 @@ data class StatsState(
     val achievements: List<Achievement> = emptyList(),
     val totalCheckInDays: Int = 0,
     val weeklyStats: List<WeeklyStats> = emptyList(),
+    val milestoneStats: MilestoneStats? = null,
+    val categoryDistribution: List<CategoryDistribution> = emptyList(),
+    val difficultyDistribution: List<DifficultyDistribution> = emptyList(),
+    val weeklyTrend: List<TrendDataPoint> = emptyList(),
+    val monthlyTrend: List<TrendDataPoint> = emptyList(),
+    val weekComparison: ComparisonData? = null,
+    val monthComparison: ComparisonData? = null,
     val isLoading: Boolean = true
 )
 
@@ -77,19 +86,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     val state: StateFlow<HomeState> = _state
 
     init {
-        loadTodayPlans()
+        loadTodayPlans(isInitial = true)
     }
 
-    fun loadTodayPlans() {
+    fun loadTodayPlans(isInitial: Boolean = false) {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true) }
+            if (isInitial) {
+                _state.update { it.copy(isLoading = true) }
+            }
             val plans = repository.getTodayPlans()
-            
-            // 加载进行中的挑战
+
             val challenges = repository.getAllActiveChallenges().first()
             val exercises = repository.getAllActiveExercises().first()
             val now = System.currentTimeMillis()
-            
+
             val activeChallenges = challenges
                 .filter { it.isActive && now in it.startDate..it.endDate }
                 .mapNotNull { challenge ->
@@ -100,18 +110,25 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                             startDate = challenge.startDate,
                             endDate = challenge.endDate + 24 * 60 * 60 * 1000 - 1
                         )
-                        // 加载媒体列表
                         val mediaList = repository.getMediaByExercise(challenge.exerciseId).first()
                         ChallengePlanWithExercise(challenge, exercise, completedReps, mediaList)
                     } else null
                 }
-            
-            _state.update { 
+
+            val displayPlans = if (plans.isEmpty() && activeChallenges.isEmpty() && !isInitial) {
+                DemoData.getDemoTodayPlans()
+            } else plans
+
+            val displayChallenges = if (plans.isEmpty() && activeChallenges.isEmpty() && !isInitial) {
+                DemoData.getDemoActiveChallenges()
+            } else activeChallenges
+
+            _state.update {
                 it.copy(
-                    todayPlans = plans,
-                    activeChallenges = activeChallenges,
-                    completedCount = plans.count { p -> p.isCompleted },
-                    totalCount = plans.size,
+                    todayPlans = displayPlans,
+                    activeChallenges = displayChallenges,
+                    completedCount = displayPlans.count { p -> p.isCompleted },
+                    totalCount = displayPlans.size,
                     isLoading = false
                 )
             }
@@ -129,8 +146,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     completedReps = targetReps
                 )
             )
-            loadTodayPlans()
+            loadTodayPlans(isInitial = false)
         }
+    }
+
+    fun selectTab(tabIndex: Int) {
+        _state.update { it.copy(selectedTab = tabIndex) }
     }
 
     private fun getDayStart(timestamp: Long): Long {
@@ -372,11 +393,10 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
     fun loadMonth(year: Int, month: Int) {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
-            
+
             val calendarData = repository.getCalendarData(year, month)
             val exercises = repository.getAllActiveExercises().first()
-            
-            // Get all check-ins for the month
+
             val calendar = Calendar.getInstance()
             calendar.set(year, month - 1, 1, 0, 0, 0)
             calendar.set(Calendar.MILLISECOND, 0)
@@ -394,10 +414,18 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
                 if (exercise != null) CheckInWithExercise(checkIn, exercise) else null
             }.sortedByDescending { it.checkIn.date }
 
+            val displayCheckIns = if (checkInsWithExercise.isEmpty() && exercises.isNotEmpty()) {
+                DemoData.getDemoCheckIns()
+            } else checkInsWithExercise
+
+            val displayCalendarData = if (displayCheckIns.isNotEmpty()) {
+                calendarData.ifEmpty { DemoData.getDemoCalendarData() }
+            } else calendarData
+
             _state.update {
                 it.copy(
-                    calendarData = calendarData,
-                    checkIns = checkInsWithExercise,
+                    calendarData = displayCalendarData,
+                    checkIns = displayCheckIns,
                     currentYear = year,
                     currentMonth = month,
                     isLoading = false
@@ -433,7 +461,7 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
 
 class StatsViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FitRepository.getRepository(application)
-    
+
     private val _state = MutableStateFlow(StatsState())
     val state: StateFlow<StatsState> = _state
 
@@ -444,18 +472,56 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
     fun loadStats() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
-            
+
             val achievements = repository.getAchievements()
             val weeklyStats = repository.getWeeklyStats()
-            
+            val milestoneStats = repository.getMilestoneStats()
+            val categoryDistribution = repository.getCategoryDistribution()
+            val difficultyDistribution = repository.getDifficultyDistribution()
+            val weeklyTrend = repository.getWeeklyTrend()
+            val monthlyTrend = repository.getMonthlyTrend()
+            val weekComparison = repository.getWeekComparison()
+            val monthComparison = repository.getMonthComparison()
+
+            val displayAchievements = if (achievements.isEmpty()) {
+                DemoData.getDemoAchievements()
+            } else achievements
+
+            val displayCategoryDist = if (categoryDistribution.isEmpty() && displayAchievements.isNotEmpty()) {
+                DemoData.getDemoCategoryDistribution()
+            } else categoryDistribution
+
+            val displayDifficultyDist = if (difficultyDistribution.isEmpty() && displayAchievements.isNotEmpty()) {
+                DemoData.getDemoDifficultyDistribution()
+            } else difficultyDistribution
+
+            val displayWeeklyTrend = if (weeklyTrend.isEmpty() && displayAchievements.isNotEmpty()) {
+                DemoData.getDemoWeeklyTrend()
+            } else weeklyTrend
+
+            val displayMonthlyTrend = if (monthlyTrend.isEmpty() && displayAchievements.isNotEmpty()) {
+                DemoData.getDemoMonthlyTrend()
+            } else monthlyTrend
+
+            val displayMilestones = if (milestoneStats == null && displayAchievements.isNotEmpty()) {
+                DemoData.getDemoMilestoneStats()
+            } else milestoneStats
+
             repository.getTotalCheckInDays()
                 .catch { emit(0) }
                 .collect { days ->
                     _state.update {
                         it.copy(
-                            achievements = achievements,
+                            achievements = displayAchievements,
                             totalCheckInDays = days,
                             weeklyStats = weeklyStats,
+                            milestoneStats = displayMilestones,
+                            categoryDistribution = displayCategoryDist,
+                            difficultyDistribution = displayDifficultyDist,
+                            weeklyTrend = displayWeeklyTrend,
+                            monthlyTrend = displayMonthlyTrend,
+                            weekComparison = weekComparison,
+                            monthComparison = monthComparison,
                             isLoading = false
                         )
                     }

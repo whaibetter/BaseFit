@@ -13,6 +13,7 @@ sealed class Screen(val route: String) {
     object Plan : Screen("plan")
     object Record : Screen("record")
     object Stats : Screen("stats")
+    object My : Screen("my")
     object Settings : Screen("settings")
     object ExerciseManagement : Screen("exercise_management")
     object AddExercise : Screen("add_exercise")
@@ -27,6 +28,8 @@ sealed class Screen(val route: String) {
     object ExerciseDetail : Screen("exercise_detail/{exerciseId}") {
         fun createRoute(exerciseId: Long) = "exercise_detail/$exerciseId"
     }
+    object ProfileEdit : Screen("profile_edit")
+    object BodyMetrics : Screen("body_metrics")
 }
 
 @Composable
@@ -72,10 +75,23 @@ fun BaseFitNavGraph(
             StatsScreen(bottomBarPadding = bottomBarPadding)
         }
         
-        composable(Screen.Settings.route) {
-            SettingsScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToExerciseManagement = { navController.navigate(Screen.ExerciseManagement.route) }
+        composable(Screen.My.route) {
+            MyScreen(
+                onNavigateToExerciseManagement = { navController.navigate(Screen.ExerciseManagement.route) },
+                onNavigateToProfileEdit = { navController.navigate(Screen.ProfileEdit.route) },
+                onNavigateToBodyMetrics = { navController.navigate(Screen.BodyMetrics.route) }
+            )
+        }
+
+        composable(Screen.ProfileEdit.route) {
+            ProfileEditScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.BodyMetrics.route) {
+            BodyMetricsScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         

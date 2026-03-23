@@ -135,7 +135,7 @@ class BaseFitApp : Application() {
             for (i in 1..7) {
                 val recordDate = now - i * 24 * 60 * 60 * 1000
                 val dayStart = getDayStart(recordDate)
-                
+
                 repository.insertCheckIn(
                     CheckIn(
                         exerciseId = pushUpId,
@@ -145,7 +145,7 @@ class BaseFitApp : Application() {
                         notes = if (i % 2 == 0) "感觉不错！" else null
                     )
                 )
-                
+
                 repository.insertCheckIn(
                     CheckIn(
                         exerciseId = squatId,
@@ -154,7 +154,7 @@ class BaseFitApp : Application() {
                         completedReps = (18..22).random()
                     )
                 )
-                
+
                 if (i % 2 == 0) {
                     repository.insertCheckIn(
                         CheckIn(
@@ -167,7 +167,107 @@ class BaseFitApp : Application() {
                     )
                 }
             }
-            
+
+            // 添加用户个人资料
+            repository.saveUserProfile(
+                UserProfile(
+                    id = 1,
+                    name = "健身爱好者",
+                    phone = "138****8888",
+                    email = "fitness@example.com",
+                    gender = "male",
+                    birthDate = 946656000000, // 2000-01-01
+                    avatarPath = null,
+                    updatedAt = now
+                )
+            )
+
+            // 添加身体指标数据
+            val thirtyDaysAgo = now - 30L * 24 * 60 * 60 * 1000
+            val weightBase = 70f
+            val bodyFatBase = 18f
+            val stepsBase = 8000
+
+            for (dayOffset in 0..30) {
+                val recordDate = now - dayOffset * 24 * 60 * 60 * 1000
+
+                // 体重数据 (波动下降)
+                repository.saveBodyMetric(
+                    BodyMetric(
+                        type = BodyMetricType.WEIGHT,
+                        value = weightBase - (30 - dayOffset) * 0.1f + (Math.random() * 2 - 1).toFloat(),
+                        unit = "kg",
+                        recordDate = recordDate,
+                        source = "manual",
+                        notes = null
+                    )
+                )
+
+                // 体脂率数据 (缓慢下降)
+                repository.saveBodyMetric(
+                    BodyMetric(
+                        type = BodyMetricType.BODY_FAT,
+                        value = bodyFatBase - (30 - dayOffset) * 0.08f + (Math.random() * 1 - 0.5).toFloat(),
+                        unit = "%",
+                        recordDate = recordDate,
+                        source = "manual",
+                        notes = null
+                    )
+                )
+
+                // 步数数据 (每天波动)
+                if (dayOffset % 7 != 6) { // 非周日
+                    repository.saveBodyMetric(
+                        BodyMetric(
+                            type = BodyMetricType.STEPS,
+                            value = (stepsBase + (Math.random() * 4000 - 2000).toInt()).toFloat(),
+                            unit = "步",
+                            recordDate = recordDate,
+                            source = "manual",
+                            notes = null
+                        )
+                    )
+                }
+
+                // 睡眠数据 (周末多睡)
+                repository.saveBodyMetric(
+                    BodyMetric(
+                        type = BodyMetricType.SLEEP,
+                        value = (7.5f + (Math.random() * 1.5 - 0.75).toFloat() + if (dayOffset % 7 >= 5) 1f else 0f),
+                        unit = "小时",
+                        recordDate = recordDate,
+                        source = "manual",
+                        notes = null
+                    )
+                )
+
+                // 心率数据
+                repository.saveBodyMetric(
+                    BodyMetric(
+                        type = BodyMetricType.HEART_RATE,
+                        value = (68 + Math.random() * 12 - 6).toFloat(),
+                        unit = "bpm",
+                        recordDate = recordDate,
+                        source = "manual",
+                        notes = null
+                    )
+                )
+
+                // 每周记录一次肌肉量和BMI
+                if (dayOffset % 7 == 0) {
+                    repository.saveBodyMetric(
+                        BodyMetric(
+                            type = BodyMetricType.MUSCLE_MASS,
+                            value = (35 + (30 - dayOffset) * 0.05f + (Math.random() * 1 - 0.5).toFloat()),
+                            unit = "kg",
+                            recordDate = recordDate,
+                            source = "manual",
+                            notes = null
+                        )
+                    )
+                }
+            }
+
             // 标记已初始化
             prefs.edit()
                 .putBoolean("sample_data_initialized", true)

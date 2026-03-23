@@ -78,14 +78,71 @@ data class CheckIn(
 data class Achievement(
     val exerciseId: Long,
     val exerciseName: String,
+    val category: ExerciseCategory,
     val totalCheckIns: Int,
     val totalSets: Int,
     val totalReps: Int,
     val maxWeight: Float?,
     val maxDuration: Int?,
     val currentStreak: Int,
-    val bestStreak: Int
+    val bestStreak: Int,
+    val firstCheckInDate: Long = 0,
+    val lastCheckInDate: Long = 0
 )
+
+enum class AchievementDifficulty {
+    EASY,       // 简单：单日或短周期可完成
+    MEDIUM,     // 中等：数周积累
+    HARD,       // 困难：数月坚持
+    EXTREME     // 极难：长期坚持
+}
+
+data class MilestoneInfo(
+    val name: String,
+    val targetValue: Int,
+    val currentValue: Int,
+    val unit: String,
+    val difficulty: AchievementDifficulty,
+    val isCompleted: Boolean = false
+) {
+    val progress: Float get() = if (targetValue > 0) (currentValue.toFloat() / targetValue).coerceAtMost(1f) else 0f
+    val remaining: Int get() = (targetValue - currentValue).coerceAtLeast(0)
+}
+
+data class MilestoneStats(
+    val totalMilestones: Int,
+    val completedMilestones: Int,
+    val milestones: List<MilestoneInfo>
+)
+
+data class CategoryDistribution(
+    val category: ExerciseCategory,
+    val count: Int,
+    val totalCheckIns: Int,
+    val percentage: Float
+)
+
+data class DifficultyDistribution(
+    val difficulty: AchievementDifficulty,
+    val count: Int,
+    val label: String
+)
+
+data class TrendDataPoint(
+    val label: String,
+    val value: Int,
+    val date: Long = 0
+)
+
+data class ComparisonData(
+    val thisPeriod: Int,
+    val lastPeriod: Int,
+    val periodType: String
+) {
+    val change: Int get() = thisPeriod - lastPeriod
+    val changePercent: Float get() = if (lastPeriod > 0) ((thisPeriod - lastPeriod).toFloat() / lastPeriod * 100) else 0f
+    val isPositive: Boolean get() = change >= 0
+}
 
 // 统计数据
 data class DailyStats(
@@ -141,3 +198,103 @@ data class ExerciseMedia(
     val description: String? = null, // 媒体描述
     val createdAt: Long = System.currentTimeMillis()
 )
+
+@Entity(tableName = "user_profile")
+data class UserProfile(
+    @PrimaryKey
+    val id: Long = 1,
+    val name: String = "",
+    val phone: String? = null,
+    val email: String? = null,
+    val avatarPath: String? = null,
+    val birthDate: Long? = null,
+    val gender: String? = null,
+    val updatedAt: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "profile_edit_history")
+data class ProfileEditHistory(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val fieldName: String,
+    val oldValue: String?,
+    val newValue: String?,
+    val editedAt: Long = System.currentTimeMillis()
+)
+
+enum class BodyMetricType {
+    WEIGHT,       // 体重 (kg)
+    HEIGHT,       // 身高 (cm)
+    BMI,          // 身体质量指数
+    BODY_FAT,     // 体脂率 (%)
+    MUSCLE_MASS,  // 肌肉量 (kg)
+    BMR,          // 基础代谢率 (kcal)
+    STEPS,        // 步数
+    SLEEP,        // 睡眠时长 (小时)
+    HEART_RATE,   // 心率 (bpm)
+    BLOOD_PRESSURE_SYSTOLIC,  // 收缩压 (mmHg)
+    BLOOD_PRESSURE_DIASTOLIC  // 舒张压 (mmHg)
+}
+
+@Entity(tableName = "body_metrics")
+data class BodyMetric(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val type: BodyMetricType,
+    val value: Float,
+    val unit: String,
+    val recordDate: Long,
+    val source: String = "manual",
+    val notes: String? = null,
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+data class BodyMetricWithRange(
+    val metric: BodyMetric,
+    val normalMin: Float?,
+    val normalMax: Float?,
+    val isNormal: Boolean
+)
+
+data class BodyMetricTrend(
+    val type: BodyMetricType,
+    val unit: String,
+    val dataPoints: List<BodyMetricDataPoint>,
+    val normalMin: Float?,
+    val normalMax: Float?,
+    val latestValue: Float?,
+    val change: Float?,
+    val changePercent: Float?
+)
+
+data class BodyMetricDataPoint(
+    val date: Long,
+    val value: Float
+)
+
+data class NormalRange(
+    val type: BodyMetricType,
+    val min: Float,
+    val max: Float,
+    val unit: String
+) {
+    companion object {
+        val NORMAL_RANGES = listOf(
+            NormalRange(BodyMetricType.WEIGHT, 45f, 90f, "kg"),
+            NormalRange(BodyMetricType.HEIGHT, 150f, 200f, "cm"),
+            NormalRange(BodyMetricType.BMI, 18.5f, 24.9f, ""),
+            NormalRange(BodyMetricType.BODY_FAT, 10f, 25f, "%"),
+            NormalRange(BodyMetricType.MUSCLE_MASS, 25f, 40f, "kg"),
+            NormalRange(BodyMetricType.BMR, 1200f, 2000f, "kcal"),
+            NormalRange(BodyMetricType.STEPS, 6000f, 10000f, "步"),
+            NormalRange(BodyMetricType.SLEEP, 7f, 9f, "小时"),
+            NormalRange(BodyMetricType.HEART_RATE, 60f, 100f, "bpm"),
+            NormalRange(BodyMetricType.BLOOD_PRESSURE_SYSTOLIC, 90f, 140f, "mmHg"),
+            NormalRange(BodyMetricType.BLOOD_PRESSURE_DIASTOLIC, 60f, 90f, "mmHg")
+        )
+
+        fun getRange(type: BodyMetricType): NormalRange? {
+            return NORMAL_RANGES.find { it.type == type }
+        }
+    }
+}

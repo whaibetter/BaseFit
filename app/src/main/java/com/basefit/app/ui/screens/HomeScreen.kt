@@ -2,13 +2,17 @@ package com.basefit.app.ui.screens
 
 import android.graphics.BitmapFactory
 import android.widget.Toast
+import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -56,11 +60,22 @@ fun HomeScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // 监听页面恢复，自动刷新数据
+    val lazyListState = rememberLazyListState()
+    val collapseProgress = remember { derivedStateOf {
+        val firstVisibleItem = lazyListState.firstVisibleItemIndex
+        val firstVisibleOffset = lazyListState.firstVisibleItemScrollOffset
+        if (firstVisibleItem > 0) 1f
+        else (firstVisibleOffset / 200f).coerceIn(0f, 1f)
+    }}
+
+    val selectedTab = state.selectedTab
+    val tabs = listOf("今日计划", "进行中的挑战")
+    val challengeCount = state.activeChallenges.size
+
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                viewModel.loadTodayPlans()
+                viewModel.loadTodayPlans(isInitial = false)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -72,7 +87,7 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { 
+                title = {
                     Text(
                         "BaseFit",
                         fontWeight = FontWeight.Bold,
@@ -80,16 +95,16 @@ fun HomeScreen(
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Background,
-                    titleContentColor = TextPrimary
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNavigateToPlan,
-                containerColor = Primary,
-                contentColor = Color.White,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.padding(bottom = bottomBarPadding.calculateBottomPadding())
             ) {
                 Icon(Icons.Default.Add, contentDescription = "添加计划")
@@ -100,12 +115,12 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(Background)
+                .background(MaterialTheme.colorScheme.background)
         ) {
-            // Progress Card
-            ProgressCard(
+            CollapsibleProgressCard(
                 completed = state.completedCount,
                 total = state.totalCount,
+                collapseProgress = collapseProgress.value,
                 onAddPlan = onNavigateToPlan
             )
 
@@ -117,12 +132,6 @@ fun HomeScreen(
                     CircularProgressIndicator()
                 }
             } else {
-                // Tab切换
-                var selectedTab by remember { mutableStateOf(0) }
-                val tabs = listOf("今日计划", "进行中的挑战")
-                val challengeCount = state.activeChallenges.size
-                
-                // 自定义Tab样式
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -132,26 +141,27 @@ fun HomeScreen(
                     tabs.forEachIndexed { index, title ->
                         val isSelected = selectedTab == index
                         val count = if (index == 0) state.todayPlans.size else challengeCount
-                        
+
                         FilterChip(
                             selected = isSelected,
-                            onClick = { selectedTab = index },
-                            label = { 
+                            onClick = { viewModel.selectTab(index) },
+                            label = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         title,
-                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     if (count > 0) {
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Surface(
                                             shape = RoundedCornerShape(4.dp),
-                                            color = if (isSelected) Primary.copy(alpha = 0.3f) else TextHint.copy(alpha = 0.2f)
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.3f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
                                         ) {
                                             Text(
                                                 text = "$count",
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = if (isSelected) Primary else TextSecondary,
+                                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
                                             )
                                         }
@@ -160,21 +170,20 @@ fun HomeScreen(
                             },
                             modifier = Modifier.weight(1f),
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Primary.copy(alpha = 0.15f),
-                                containerColor = Surface
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                containerColor = MaterialTheme.colorScheme.surface
                             )
                         )
                     }
                 }
-                
-                // 内容区域
+
                 LazyColumn(
+                    state = lazyListState,
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     when (selectedTab) {
                         0 -> {
-                            // 今日计划
                             if (state.todayPlans.isEmpty()) {
                                 item {
                                     EmptyPlanCard(onAddPlan = onNavigateToPlan)
@@ -199,7 +208,6 @@ fun HomeScreen(
                             }
                         }
                         1 -> {
-                            // 挑战计划
                             if (state.activeChallenges.isEmpty()) {
                                 item {
                                     EmptyChallengeCard(onAddPlan = onNavigateToPlan)
@@ -220,8 +228,7 @@ fun HomeScreen(
                             }
                         }
                     }
-                    
-                    // Bottom spacer
+
                     item {
                         Spacer(modifier = Modifier.height(80.dp))
                     }
@@ -232,103 +239,130 @@ fun HomeScreen(
 }
 
 @Composable
-private fun ProgressCard(
+private fun CollapsibleProgressCard(
     completed: Int,
     total: Int,
+    collapseProgress: Float,
     onAddPlan: () -> Unit
 ) {
+    val progressValue = if (total > 0) completed.toFloat() / total else 0f
+
+    val expandedHeight = 140
+    val collapsedHeight = 56
+    val targetHeight = (collapsedHeight + (expandedHeight - collapsedHeight) * (1 - collapseProgress)).toInt()
+    val animatedHeight by animateIntAsState(
+        targetValue = targetHeight,
+        label = "progressCardHeight"
+    )
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .height(animatedHeight.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Primary),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        val progress = if (total > 0) completed.toFloat() / total else 0f
-        
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp)
+                .fillMaxSize()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
         ) {
-            val progressValue = if (total > 0) completed.toFloat() / total else 0f
-            
-            Column {
-                Text(
-                    text = "今日进度",
-                    color = Color.White.copy(alpha = 0.8f),
-                    fontSize = 14.sp
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+            if (collapseProgress < 0.5f) {
                 Row(
-                    verticalAlignment = Alignment.Bottom
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "$completed",
-                        color = Color.White,
-                        fontSize = 48.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = " / $total",
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 24.sp,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Progress bar
-                LinearProgressIndicator(
-                    progress = progressValue,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp)),
-                    color = Color.White,
-                    trackColor = Color.White.copy(alpha = 0.3f)
-                )
-                
-                if (total == 0) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    TextButton(onClick = onAddPlan) {
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
                         Text(
-                            "添加计划开始打卡",
-                            color = Color.White,
+                            text = "今日进度",
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
                             fontSize = 14.sp
                         )
-                        Icon(
-                            Icons.Default.ArrowForward,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Text(
+                                text = "$completed",
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                fontSize = 36.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = " / $total",
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
+                                fontSize = 18.sp,
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
+                        }
+                    }
+
+                    if (total > 0) {
+                        Box(
+                            modifier = Modifier.size(72.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                progress = progressValue,
+                                modifier = Modifier.size(72.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 5.dp,
+                                trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.3f)
+                            )
+                            Text(
+                                text = "${(progressValue * 100).toInt()}%",
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
-            }
-
-            // Circular progress indicator
-            if (total > 0) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .size(80.dp),
-                    contentAlignment = Alignment.Center
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    CircularProgressIndicator(
-                        progress = progressValue,
-                        modifier = Modifier.size(80.dp),
-                        color = Color.White,
-                        strokeWidth = 6.dp,
-                        trackColor = Color.White.copy(alpha = 0.3f)
-                    )
                     Text(
-                        text = "${(progressValue * 100).toInt()}%",
-                        color = Color.White,
-                        fontSize = 16.sp,
+                        text = "今日进度",
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    LinearProgressIndicator(
+                        progress = progressValue,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.3f)
+                    )
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Text(
+                        text = "$completed / $total",
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
+
+                    if (total > 0) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "${(progressValue * 100).toInt()}%",
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
         }
@@ -353,108 +387,48 @@ private fun TodayPlanCard(
         com.basefit.app.data.entity.ExerciseCategory.STRENGTH -> Icons.Default.FitnessCenter
         com.basefit.app.data.entity.ExerciseCategory.CARDIO -> Icons.Default.DirectionsRun
     }
-    
-    // 媒体查看器状态
+
     var showMediaViewer by remember { mutableStateOf(false) }
     var selectedMediaIndex by remember { mutableStateOf(0) }
-    
+
     val firstMedia = item.mediaList.sortedBy { it.orderIndex }.firstOrNull()
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (item.isCompleted) 
-                Success.copy(alpha = 0.08f) 
-            else 
-                Surface
+            containerColor = if (item.isCompleted)
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+            else
+                MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(16.dp)
         ) {
-            // 上半部分：媒体预览或分类图标
-            if (firstMedia != null && !item.isCompleted) {
-                // 有媒体时显示大图预览
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(140.dp)
-                        .clickable {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (firstMedia != null && !item.isCompleted) {
+                    MediaThumbnailSmall(
+                        media = firstMedia,
+                        size = 44,
+                        onClick = {
                             selectedMediaIndex = 0
                             showMediaViewer = true
                         }
-                ) {
-                    MediaPreviewLarge(
-                        media = firstMedia,
-                        modifier = Modifier.fillMaxSize()
                     )
-                    
-                    // 媒体数量角标
-                    if (item.mediaList.size > 1) {
-                        Surface(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(8.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color.Black.copy(alpha = 0.5f)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.Collections,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "${item.mediaList.size}",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
-                    }
-                    
-                    // 底部渐变遮罩
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .height(40.dp)
-                            .background(
-                                androidx.compose.ui.graphics.Brush.verticalGradient(
-                                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.3f))
-                                )
-                            )
-                    )
-                }
-            }
-            
-            // 下半部分：动作信息
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 无媒体或已完成时显示分类图标
-                if (firstMedia == null || item.isCompleted) {
+                } else {
                     Box(
                         modifier = Modifier
                             .size(44.dp)
-                            .clip(CircleShape)
                             .background(
-                                if (item.isCompleted)
-                                    Success.copy(alpha = 0.15f)
-                                else
-                                    categoryColor.copy(alpha = 0.12f)
+                                (if (item.isCompleted) Success else categoryColor).copy(alpha = 0.12f),
+                                RoundedCornerShape(10.dp)
                             ),
                         contentAlignment = Alignment.Center
                     ) {
@@ -465,94 +439,109 @@ private fun TodayPlanCard(
                             modifier = Modifier.size(24.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
                 }
 
-                // 动作信息
+                Spacer(modifier = Modifier.width(12.dp))
+
                 Column(
                     modifier = Modifier
                         .weight(1f)
                         .clickable { onViewDetail(item.exercise.id) }
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = item.exercise.name,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = if (item.isCompleted) TextSecondary else TextPrimary,
+                            color = if (item.isCompleted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
                         Icon(
                             Icons.Default.ChevronRight,
                             contentDescription = "查看详情",
-                            tint = TextHint,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)
                         )
-                        if (item.isCompleted) {
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = Success.copy(alpha = 0.15f)
-                            ) {
-                                Text(
-                                    text = "已完成",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Success,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
                     }
-                    
-                    Spacer(modifier = Modifier.height(4.dp))
-                    
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             Icons.Default.TrackChanges,
                             contentDescription = null,
-                            tint = TextSecondary,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(12.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "${item.weekPlan.targetSets}组 × ${item.weekPlan.targetReps}次",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        
-                        if (item.isCompleted) {
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Icon(
-                                Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = Success,
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "${item.completedSets}组 × ${item.completedReps}次",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Success,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
                     }
                 }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = (if (item.isCompleted) Success else MaterialTheme.colorScheme.primary).copy(alpha = 0.15f)
+                ) {
+                    Text(
+                        text = if (item.isCompleted) "已完成" else "待打卡",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (item.isCompleted) Success else MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
             }
-            
-            // 操作按钮
-            if (!item.isCompleted) {
+
+            if (item.isCompleted) {
+                Spacer(modifier = Modifier.height(12.dp))
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = Success,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "已完成 ${item.completedSets}组 × ${item.completedReps}次",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Success,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            if (item.mediaList.size > 1 && !item.isCompleted) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Collections,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "${item.mediaList.size} 个媒体",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            if (!item.isCompleted) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Button(
@@ -565,127 +554,39 @@ private fun TodayPlanCard(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(40.dp),
-                        shape = RoundedCornerShape(10.dp),
+                            .height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = categoryColor)
                     ) {
-                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("快速打卡", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("快速打卡", fontWeight = FontWeight.SemiBold)
                     }
-                    
+
                     OutlinedButton(
                         onClick = { onDetailCheckIn(item.exercise.id) },
                         modifier = Modifier
                             .weight(1f)
-                            .height(40.dp),
-                        shape = RoundedCornerShape(10.dp),
+                            .height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
                         border = androidx.compose.foundation.BorderStroke(1.dp, categoryColor.copy(alpha = 0.5f)),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = categoryColor)
                     ) {
-                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("详细记录", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("详细记录", fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
         }
     }
-    
-    // 媒体查看器
+
     if (showMediaViewer && item.mediaList.isNotEmpty()) {
         MediaViewerDialog(
             mediaList = item.mediaList.sortedBy { it.orderIndex },
             initialIndex = selectedMediaIndex,
             onDismiss = { showMediaViewer = false }
         )
-    }
-}
-
-@Composable
-private fun MediaPreviewLarge(
-    media: ExerciseMedia,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    
-    val typeColor = when (media.type) {
-        MediaType.IMAGE -> Primary
-        MediaType.GIF -> Warning
-        MediaType.VIDEO -> CardioColor
-    }
-
-    val typeIcon = when (media.type) {
-        MediaType.IMAGE -> Icons.Default.Image
-        MediaType.GIF -> Icons.Default.Gif
-        MediaType.VIDEO -> Icons.Default.Videocam
-    }
-
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
-            .background(Surface),
-        contentAlignment = Alignment.Center
-    ) {
-        val imagePath = media.thumbnailPath ?: media.localPath
-        val bitmap = remember(imagePath) {
-            imagePath?.let { path ->
-                val file = File(path)
-                if (file.exists()) {
-                    BitmapFactory.decodeFile(path)
-                } else null
-            }
-        }
-
-        if (bitmap != null) {
-            Image(
-                bitmap = bitmap.asImageBitmap(),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-
-            // 视频类型显示播放图标
-            if (media.type == MediaType.VIDEO) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.5f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-            }
-        } else {
-            // 默认占位图
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(typeColor.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        typeIcon,
-                        contentDescription = null,
-                        tint = typeColor,
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = media.type.name,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = typeColor
-                    )
-                }
-            }
-        }
     }
 }
 
@@ -711,7 +612,7 @@ private fun MediaThumbnailSmall(
         modifier = Modifier
             .size(size.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(Surface)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -775,7 +676,7 @@ private fun EmptyPlanCard(onAddPlan: () -> Unit) {
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Surface)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier
@@ -786,25 +687,25 @@ private fun EmptyPlanCard(onAddPlan: () -> Unit) {
             Icon(
                 Icons.Default.EventNote,
                 contentDescription = null,
-                tint = TextHint,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(64.dp)
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "今日暂无计划",
                 style = MaterialTheme.typography.titleMedium,
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "点击下方按钮创建你的健身计划",
                 style = MaterialTheme.typography.bodyMedium,
-                color = TextHint
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(24.dp))
             Button(
                 onClick = onAddPlan,
-                colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
@@ -821,7 +722,7 @@ private fun EmptyChallengeCard(onAddPlan: () -> Unit) {
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Surface)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier
@@ -832,25 +733,25 @@ private fun EmptyChallengeCard(onAddPlan: () -> Unit) {
             Icon(
                 Icons.Default.EmojiEvents,
                 contentDescription = null,
-                tint = TextHint,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(64.dp)
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "暂无进行中的挑战",
                 style = MaterialTheme.typography.titleMedium,
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "创建一个挑战计划来激励自己",
                 style = MaterialTheme.typography.bodyMedium,
-                color = TextHint
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(24.dp))
             Button(
                 onClick = onAddPlan,
-                colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
@@ -881,12 +782,11 @@ private fun ChallengeCheckInCard(
     val completedReps = item.completedReps
     val progress = if (targetReps > 0) completedReps.toFloat() / targetReps else 0f
     val isCompleted = completedReps >= targetReps
-    
+
     var showInputDialog by remember { mutableStateOf(false) }
     var inputSets by remember { mutableStateOf(challenge.targetSets.toString()) }
     var inputReps by remember { mutableStateOf(challenge.targetReps.toString()) }
-    
-    // 媒体查看器状态
+
     var showMediaViewer by remember { mutableStateOf(false) }
     var selectedMediaIndex by remember { mutableStateOf(0) }
 
@@ -900,7 +800,7 @@ private fun ChallengeCheckInCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isCompleted) Success.copy(alpha = 0.08f) else Surface
+            containerColor = if (isCompleted) Success.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -909,16 +809,13 @@ private fun ChallengeCheckInCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 媒体缩略图或挑战图标
                 val firstMedia = item.mediaList.sortedBy { it.orderIndex }.firstOrNull()
-                
+
                 if (firstMedia != null && !isCompleted) {
-                    // 有媒体时显示缩略图
                     MediaThumbnailSmall(
                         media = firstMedia,
                         size = 44,
@@ -928,7 +825,6 @@ private fun ChallengeCheckInCard(
                         }
                     )
                 } else {
-                    // 无媒体或已完成时显示挑战图标
                     Box(
                         modifier = Modifier
                             .size(44.dp)
@@ -946,9 +842,9 @@ private fun ChallengeCheckInCard(
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.width(12.dp))
-                
+
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -959,22 +855,22 @@ private fun ChallengeCheckInCard(
                             text = challenge.name,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = if (isCompleted) TextSecondary else TextPrimary
+                            color = if (isCompleted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
                         )
                         Icon(
                             Icons.Default.ChevronRight,
                             contentDescription = "查看详情",
-                            tint = TextHint,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)
                         )
                     }
                     Text(
                         text = item.exercise.name,
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                
+
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = (if (isCompleted) Success else Warning).copy(alpha = 0.15f)
@@ -988,10 +884,9 @@ private fun ChallengeCheckInCard(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
-            // Progress
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1002,29 +897,28 @@ private fun ChallengeCheckInCard(
                         text = "$completedReps",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
-                        color = if (isCompleted) Success else Primary
+                        color = if (isCompleted) Success else MaterialTheme.colorScheme.primary
                     )
                     Text(
                         text = " / $targetReps 次",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 4.dp)
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             LinearProgressIndicator(
                 progress = progress.coerceAtMost(1f),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(6.dp),
-                color = if (isCompleted) Success else Primary,
-                trackColor = Divider
+                color = if (isCompleted) Success else MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
-            
-            // 媒体数量提示（只有多个媒体时才显示）
+
             if (item.mediaList.size > 1) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
@@ -1033,22 +927,21 @@ private fun ChallengeCheckInCard(
                     Icon(
                         Icons.Default.Collections,
                         contentDescription = null,
-                        tint = TextHint,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "${item.mediaList.size} 个媒体",
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextHint
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
-            
-            // Check-in button
+
             if (!isCompleted) {
                 Spacer(modifier = Modifier.height(12.dp))
-                
+
                 Button(
                     onClick = { showInputDialog = true },
                     modifier = Modifier
@@ -1064,8 +957,7 @@ private fun ChallengeCheckInCard(
             }
         }
     }
-    
-    // 媒体查看器
+
     if (showMediaViewer && item.mediaList.isNotEmpty()) {
         MediaViewerDialog(
             mediaList = item.mediaList.sortedBy { it.orderIndex },
@@ -1073,8 +965,7 @@ private fun ChallengeCheckInCard(
             onDismiss = { showMediaViewer = false }
         )
     }
-    
-    // Input dialog
+
     if (showInputDialog) {
         AlertDialog(
             onDismissRequest = { showInputDialog = false },
@@ -1109,7 +1000,7 @@ private fun ChallengeCheckInCard(
                         }
                     }
                 ) {
-                    Text("确定", color = Primary)
+                    Text("确定", color = MaterialTheme.colorScheme.primary)
                 }
             },
             dismissButton = {

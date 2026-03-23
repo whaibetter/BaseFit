@@ -42,7 +42,6 @@ fun RecordScreen(
     val selectedDate = state.selectedDate
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // 监听页面恢复，自动刷新数据
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -54,8 +53,7 @@ fun RecordScreen(
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
-    
-    // 根据选中日期筛选记录
+
     val displayedCheckIns = remember(state.checkIns, selectedDate) {
         if (selectedDate != null) {
             state.checkIns.filter { it.checkIn.date == selectedDate }
@@ -74,8 +72,8 @@ fun RecordScreen(
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Background,
-                    titleContentColor = TextPrimary
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -84,10 +82,9 @@ fun RecordScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(Background),
+                .background(MaterialTheme.colorScheme.background),
             contentPadding = PaddingValues(vertical = 8.dp)
         ) {
-            // Month selector
             item {
                 Row(
                     modifier = Modifier
@@ -102,7 +99,8 @@ fun RecordScreen(
                     Text(
                         text = "${state.currentYear}年${state.currentMonth}月",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                     IconButton(onClick = { viewModel.nextMonth() }) {
                         Icon(Icons.Default.ChevronRight, "下个月")
@@ -110,7 +108,6 @@ fun RecordScreen(
                 }
             }
 
-            // Calendar
             item {
                 val selDate = selectedDate
                 CalendarGrid(
@@ -122,7 +119,6 @@ fun RecordScreen(
                 )
             }
 
-            // Records header with clear button
             item {
                 Row(
                     modifier = Modifier
@@ -139,16 +135,17 @@ fun RecordScreen(
                             "本月记录"
                         },
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onBackground
                     )
-                    
+
                     if (selectedDate != null) {
                         TextButton(onClick = { viewModel.selectDate(null) }) {
-                            Text("查看全部", color = Primary)
+                            Text("查看全部", color = MaterialTheme.colorScheme.primary)
                             Icon(
                                 Icons.Default.Close,
                                 contentDescription = "清除选择",
-                                tint = Primary,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -179,14 +176,14 @@ fun RecordScreen(
                             Icon(
                                 Icons.Default.History,
                                 contentDescription = null,
-                                tint = TextHint,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(64.dp)
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
                                 text = if (selectedDate != null) "当天暂无记录" else "本月暂无记录",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -200,7 +197,6 @@ fun RecordScreen(
                 }
             }
 
-            // Bottom spacer - 增加高度避免被底部导航栏遮挡
             item {
                 Spacer(modifier = Modifier.height(80.dp))
             }
@@ -223,7 +219,6 @@ private fun CalendarGrid(
     val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
     calendar.set(Calendar.DAY_OF_MONTH, 1)
     val firstDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
-    // Convert Sunday=1 to Monday=0
     val offset = if (firstDayOfWeek == Calendar.SUNDAY) 6 else firstDayOfWeek - 2
 
     val weekDays = listOf("一", "二", "三", "四", "五", "六", "日")
@@ -233,7 +228,6 @@ private fun CalendarGrid(
             .fillMaxWidth()
             .padding(horizontal = 8.dp)
     ) {
-        // Week day headers
         Row(
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -247,13 +241,12 @@ private fun CalendarGrid(
                     Text(
                         text = day,
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
         }
 
-        // Calendar days
         val totalCells = ((daysInMonth + offset + 6) / 7) * 7
         var dayCounter = 1
 
@@ -272,7 +265,6 @@ private fun CalendarGrid(
                         if (index >= offset && dayCounter <= daysInMonth) {
                             val currentDay = dayCounter
 
-                            // Get timestamp for this day
                             calendar.set(year, month - 1, currentDay, 0, 0, 0)
                             calendar.set(Calendar.MILLISECOND, 0)
                             val dayTimestamp = calendar.timeInMillis
@@ -282,7 +274,7 @@ private fun CalendarGrid(
                             val isToday = today.get(Calendar.YEAR) == year &&
                                     today.get(Calendar.MONTH) == month - 1 &&
                                     today.get(Calendar.DAY_OF_MONTH) == currentDay
-                            
+
                             val isSelected = selectedDate == dayTimestamp
 
                             Box(
@@ -291,9 +283,9 @@ private fun CalendarGrid(
                                     .clip(CircleShape)
                                     .background(
                                         when {
-                                            isSelected -> Primary
+                                            isSelected -> MaterialTheme.colorScheme.primary
                                             checkInCount > 0 -> Success.copy(alpha = 0.2f)
-                                            isToday -> Primary.copy(alpha = 0.1f)
+                                            isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                                             else -> Color.Transparent
                                         }
                                     )
@@ -311,10 +303,10 @@ private fun CalendarGrid(
                                     text = "$currentDay",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = when {
-                                        isSelected -> Color.White
+                                        isSelected -> MaterialTheme.colorScheme.onPrimary
                                         checkInCount > 0 -> Success
-                                        isToday -> Primary
-                                        else -> TextPrimary
+                                        isToday -> MaterialTheme.colorScheme.primary
+                                        else -> MaterialTheme.colorScheme.onSurface
                                     },
                                     fontWeight = if (isToday || checkInCount > 0 || isSelected) FontWeight.SemiBold else FontWeight.Normal
                                 )
@@ -345,7 +337,7 @@ private fun CheckInRecordCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Surface)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
             modifier = Modifier
@@ -375,7 +367,7 @@ private fun CheckInRecordCard(
                     text = item.exercise.name,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -384,14 +376,14 @@ private fun CheckInRecordCard(
                             if (item.checkIn.weight != null) " · ${item.checkIn.weight}kg" else "" +
                             if (item.checkIn.durationMinutes != null) " · ${item.checkIn.durationMinutes}分钟" else "",
                     style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
             Text(
                 text = dateFormat.format(Date(item.checkIn.date)),
                 style = MaterialTheme.typography.bodySmall,
-                color = TextHint
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

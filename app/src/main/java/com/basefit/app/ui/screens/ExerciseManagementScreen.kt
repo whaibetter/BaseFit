@@ -48,8 +48,7 @@ fun ExerciseManagementScreen(
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    
-    // 监听页面恢复时刷新数据
+
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -59,8 +58,7 @@ fun ExerciseManagementScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    
-    // 删除确认对话框
+
     var showDeleteDialog by remember { mutableStateOf<Exercise?>(null) }
 
     Scaffold(
@@ -83,12 +81,12 @@ fun ExerciseManagementScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Background,
-                    titleContentColor = TextPrimary
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
-        containerColor = Background
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -120,14 +118,13 @@ fun ExerciseManagementScreen(
             }
         }
     }
-    
-    // 删除确认对话框
+
     showDeleteDialog?.let { target ->
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
             title = { Text("确认删除") },
-            text = { 
-                Text("确定要删除「${target.name}」吗？\n删除后相关数据将被清除。") 
+            text = {
+                Text("确定要删除「${target.name}」吗？\n删除后相关数据将被清除。")
             },
             confirmButton = {
                 TextButton(
@@ -136,7 +133,7 @@ fun ExerciseManagementScreen(
                         showDeleteDialog = null
                         Toast.makeText(context, "已删除", Toast.LENGTH_SHORT).show()
                     },
-                    colors = ButtonDefaults.textButtonColors(contentColor = Error)
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
                     Text("删除")
                 }
@@ -162,25 +159,25 @@ private fun EmptyExerciseContent(onAddExercise: () -> Unit) {
             Icon(
                 Icons.Default.FitnessCenter,
                 contentDescription = null,
-                tint = TextHint,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier.size(80.dp)
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "暂无动作",
                 style = MaterialTheme.typography.titleMedium,
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "点击右上角添加你的第一个动作",
                 style = MaterialTheme.typography.bodyMedium,
-                color = TextHint
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
             Spacer(modifier = Modifier.height(24.dp))
             Button(
                 onClick = onAddExercise,
-                colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
@@ -199,7 +196,7 @@ private fun ExerciseManageCard(
 ) {
     val exercise = exerciseWithMedia.exercise
     val mediaList = exerciseWithMedia.mediaList
-    
+
     val categoryColor = when (exercise.category) {
         ExerciseCategory.BODYWEIGHT -> BodyweightColor
         ExerciseCategory.STRENGTH -> StrengthColor
@@ -209,26 +206,25 @@ private fun ExerciseManageCard(
     var showMenu by remember { mutableStateOf(false) }
     var showMediaViewer by remember { mutableStateOf(false) }
     var selectedMediaIndex by remember { mutableStateOf(0) }
-    
+
     val firstMedia = mediaList.sortedBy { it.orderIndex }.firstOrNull()
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        onClick = onEdit
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { onEdit() }
                 .padding(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 媒体缩略图或分类图标
                 if (firstMedia != null) {
                     MediaThumbnailItem(
                         media = firstMedia,
@@ -257,13 +253,12 @@ private fun ExerciseManageCard(
 
                 Spacer(modifier = Modifier.width(16.dp))
 
-                // 信息
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = exercise.name,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -274,26 +269,25 @@ private fun ExerciseManageCard(
                             ExerciseCategory.CARDIO -> "有氧运动"
                         },
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                // 菜单
                 Box {
                     IconButton(onClick = { showMenu = true }) {
                         Icon(
                             Icons.Default.MoreVert,
                             contentDescription = "更多",
-                            tint = TextSecondary
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    
+
                     DropdownMenu(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false }
                     ) {
                         DropdownMenuItem(
-                            text = { 
+                            text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
@@ -306,11 +300,11 @@ private fun ExerciseManageCard(
                             }
                         )
                         DropdownMenuItem(
-                            text = { 
+                            text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp), tint = Error)
+                                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("删除", color = Error)
+                                    Text("删除", color = MaterialTheme.colorScheme.error)
                                 }
                             },
                             onClick = {
@@ -321,8 +315,7 @@ private fun ExerciseManageCard(
                     }
                 }
             }
-            
-            // 媒体数量提示（只有多个媒体时才显示）
+
             if (mediaList.size > 1) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
@@ -331,21 +324,20 @@ private fun ExerciseManageCard(
                     Icon(
                         Icons.Default.Collections,
                         contentDescription = null,
-                        tint = TextHint,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "${mediaList.size} 个媒体",
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextHint
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
         }
     }
-    
-    // 媒体查看器
+
     if (showMediaViewer && mediaList.isNotEmpty()) {
         MediaViewerDialog(
             mediaList = mediaList.sortedBy { it.orderIndex },
@@ -377,11 +369,10 @@ private fun MediaThumbnailItem(
         modifier = Modifier
             .size(size.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(Surface)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        // 尝试加载缩略图或图片
         val imagePath = media.thumbnailPath ?: media.localPath
         val bitmap = remember(imagePath) {
             imagePath?.let { path ->
@@ -393,14 +384,13 @@ private fun MediaThumbnailItem(
         }
 
         if (bitmap != null) {
-            androidx.compose.foundation.Image(
+            Image(
                 bitmap = bitmap.asImageBitmap(),
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                contentScale = ContentScale.Crop
             )
 
-            // 视频类型显示播放图标
             if (media.type == com.basefit.app.data.entity.MediaType.VIDEO) {
                 Box(
                     modifier = Modifier
@@ -419,7 +409,6 @@ private fun MediaThumbnailItem(
                 }
             }
         } else {
-            // 默认占位图
             Box(
                 modifier = Modifier
                     .fillMaxSize()
